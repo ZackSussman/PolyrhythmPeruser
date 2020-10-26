@@ -1,5 +1,4 @@
 import pyaudio
-import math
 import struct
 
 #audio player has a dictionary of clips that it can play
