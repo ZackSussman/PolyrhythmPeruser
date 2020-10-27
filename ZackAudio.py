@@ -38,6 +38,9 @@ class AudioPlayer:
             return leftClip
         return input
 
+    def updateClipByteData(self, name):
+        self.clips[name][1] = self.convertFramesToBytes(self.clips[name][0])
+
     def addByteDataToClips(self):
         for name in self.clips:
             if len(self.clips[name]) == 2: #don't have byte data for this clip
@@ -70,6 +73,7 @@ class AudioPlayer:
     def changeLevelOfClip(self, name, level):
         self.clips[name][1] = level
         self.updateVolumeOfClip(name)
+        self.updateClipByteData(name)
 
     #stop pops at beginning and end of clip
     def smoothEdgesOfClip(self, name, fadeTime = .05):
