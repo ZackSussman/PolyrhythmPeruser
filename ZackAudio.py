@@ -62,9 +62,8 @@ class AudioPlayer:
         stream.stop_stream()
         stream.close()
     
-    def addClip(self, name, clip):
-        audioData, volume = clip[0], clip[1]
-        self.clips[name] = [audioData, volume]
+    def addClip(self, name, clip, volume = .8):
+        self.clips[name] = [clip, volume]
         self.unAliasClips()
         self.updateVolumeOfClip(name)
         self.smoothEdgesOfClip(name)
