@@ -60,6 +60,18 @@ def sumSignals(signals):
     signals[0] = partialSum
     return normalize(sumSignals(signals))
 
+#assumes all signals are the same length
+def fastSumSignals(signals):
+    for x in range(len(signals)):
+        assert(len(signals[0]) == len(signals[x]))
+    output = []
+    for x in range(len(signals[0])):
+        value = 0
+        for signal in signals:
+            value += signal[x]
+        output.append(value)
+    return normalize(output)
+
 #prevent pops------------------------------------------------
 def smoothEdges(signal, fadeTime = .05, sampleRate = 48000):
     numSamples = int(fadeTime * sampleRate)
@@ -77,10 +89,18 @@ def clipToEdges(signal):
     return signal
 #-----------------------------------------------------
 
-def getOvertonedSin(numOvertones, overtoneExponent):
+
+
+#given a list of relative amplitudes, get the harmonic series of frequencies starting on the baseFrequency
+def getOvertoneSeries(duration = 1, baseFrequency = 440, relativeAmplitudes = [1/(x**2) for x in range(1, 51)], **kwargs):
+    if "duration" in kwargs:
+        duration = kwargs["duration"]
+    if "baseFrequency" in kwargs:
+        baseFrequency = kwargs["baseFrequency"]
+    if "relativeAmplitudes" in kwargs:
+        relativeAmplitudes = kwargs["relativeAmplitudes"]
     sinWavList = []
-    n = numOvertones
-    for x in range(n):
-        sinWavList.append(getSinWav(duration = 3, frequencyFunction = lambda i: 440*(2**x), amplitudeFunction = lambda i: (1 - x/(n-1))**overtoneExponent))
-    ultimateWav = sumSignals(sinWavList)
-    return ultimateWav
+    frequency = baseFrequency
+    for x in range(len(relativeAmplitudes)):
+        sinWavList.append(getSignal(duration = duration, frequencyFunction = lambda i: baseFrequency*(x), amplitudeFunction = lambda i: relativeAmplitudes[x]))
+    return sumSignals(sinWavList)
