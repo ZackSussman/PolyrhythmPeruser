@@ -9,5 +9,5 @@ def getSinWav(frequencyFunction, duration, amplitudeFunction = lambda i: 1, samp
 
 def getKick(time, startingPitch = 440, endingPitch = 70, sampleRate = 48000):
     frequencyFunction = lambda i: startingPitch + (endingPitch - startingPitch)*(i/(time*sampleRate))
-    amplitudeFunction = lambda i: (1 + - (.7)*(((i)/(time*sampleRate))**12)
-    return getSinWav(frequencyFunction,time, amplitudeFunction)
+    amplitudeFunction = lambda i: (1 + - (.7)*(((i)/(time*sampleRate))**12))
+    return getSinWav(frequencyFunction, time, amplitudeFunction)
