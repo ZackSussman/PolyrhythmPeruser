@@ -1,5 +1,7 @@
 import pyaudio
 import struct
+import wave
+import _thread as thread
 
 #audio player has a dictionary of clips that it can play
 #clips has 2 elements, the double audio data, and the byte form audio data
@@ -30,14 +32,28 @@ class AudioPlayer:
             bArray += values
         return bArray
     
-    def playClip(self, clipName):
-        clipAudioValues = self.clips[clipName][0]
+
+    def asynchPlayClip(self, clipName, meaningLessPlaceholder):
+        clipValues = self.clips[clipName][1]
         p = pyaudio.PyAudio()
         stream = p.open(format = pyaudio.paFloat32, channels = 1, 
         rate = self.sampleRate, output = True)
-        stream.write(self.clips[clipName][1])
+        stream.write(clipValues)
         stream.stop_stream()
         stream.close()
+
+    def playClip(self, clipName, asynchronous = True):
+        clipAudioData = self.clips[clipName][1]
+        if not asynchronous:
+            p = pyaudio.PyAudio()
+            stream = p.open(format = pyaudio.paFloat32, channels = 1, 
+            rate = self.sampleRate, output = True)
+            stream.write(clipAudioData)
+            stream.stop_stream()
+            stream.close()
+        else:
+            thread.start_new_thread(self.asynchPlayClip, (clipName, 0))
+        
     
     def addClip(self, name, clip):
         self.clips[name] = [clip]

@@ -103,4 +103,4 @@ def getOvertoneSeries(duration = 1, baseFrequency = 440, relativeAmplitudes = [1
     frequency = baseFrequency
     for x in range(len(relativeAmplitudes)):
         sinWavList.append(getSignal(duration = duration, frequencyFunction = lambda i: baseFrequency*(x), amplitudeFunction = lambda i: relativeAmplitudes[x]))
-    return sumSignals(sinWavList)
+    return fastSumSignals(sinWavList)
