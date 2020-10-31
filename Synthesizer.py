@@ -1,7 +1,13 @@
 import math
+import random
  
 #oscillators ----------------------------
+period = 2*math.pi
 sin = lambda x: math.sin(x)
+square = lambda x: 1 if x % (period) < period/2 else -1
+saw = lambda x: 1 - (x % (period)) / (period)
+triangle = lambda x: -1 + 4*((x % (period)) / (period)) if (x % period) < period/2 else 1 - 4*((x % (period) - period/2) / (period))
+whitenoise = lambda x: random.randint(0, 1024)/1024 if random.randint(0, 1) == 0 else -1*random.randint(0, 1024)/1024
 #------------------------------------------
 
 def getSignal(duration = 1, frequencyFunction = lambda i: 440, amplitudeFunction = lambda i: 1, sampleRate = 48000, oscillator = sin, *kwargs):
@@ -20,7 +26,8 @@ def getSignal(duration = 1, frequencyFunction = lambda i: 440, amplitudeFunction
         signal.append(amplitudeFunction(i)*oscillator((frequencyFunction(i)*2*math.pi)*(i/sampleRate)))
     return clipToEdges(smoothEdges(signal))
 
-def getKick(duration = .1, amplitude = 1, startingPitch = 440, endingPitch = 70, sampleRate = 48000, **kwargs):
+
+def getKick(duration = .1, amplitude = 1, startingPitch = 440, endingPitch = 70, sampleRate = 48000, oscillator = triangle, **kwargs):
     if "duration" in kwargs:
         duration = kwargs["duration"]
     if "startingPitch" in kwargs:
@@ -33,11 +40,11 @@ def getKick(duration = .1, amplitude = 1, startingPitch = 440, endingPitch = 70,
         sampleRate = kwargs["sampleRate"]
     frequencyFunction = lambda i: startingPitch + (endingPitch - startingPitch)*(i/(duration*sampleRate))
     amplitudeFunction = lambda i: amplitude * (1 + - (.7)*(((i)/(duration*sampleRate))**12))
-    return getSignal(duration = duration, frequencyFunction = frequencyFunction,  amplitudeFunction = amplitudeFunction)
+    return getSignal(duration = duration, frequencyFunction = frequencyFunction,  amplitudeFunction = amplitudeFunction, oscillator = oscillator)
 
 def normalize(output):
     maxValue = max(output)
-    if maxValue == 0: return #prevent division by zero error
+    if maxValue == 0: return output #prevent division by zero error
     for x in range(len(output)):
         output[x] /= maxValue
     return output
@@ -73,7 +80,7 @@ def fastSumSignals(signals):
     return normalize(output)
 
 #prevent pops------------------------------------------------
-def smoothEdges(signal, fadeTime = .05, sampleRate = 48000):
+def smoothEdges(signal, fadeTime = .005, sampleRate = 48000):
     numSamples = int(fadeTime * sampleRate)
     for i in range(0, numSamples):
         signal[i] *= i/(numSamples - 1)
@@ -92,15 +99,20 @@ def clipToEdges(signal):
 
 
 #given a list of relative amplitudes, get the harmonic series of frequencies starting on the baseFrequency
-def getOvertoneSeries(duration = 1, baseFrequency = 440, relativeAmplitudes = [1/(x**2) for x in range(1, 51)], **kwargs):
+def getOvertoneSeries(duration = 1, baseFrequency = 440, amplitudeFunction = lambda i: 1, relativeAmplitudes = [1/(x**2) for x in range(1, 51)], oscillator = sin, **kwargs):
     if "duration" in kwargs:
         duration = kwargs["duration"]
     if "baseFrequency" in kwargs:
         baseFrequency = kwargs["baseFrequency"]
     if "relativeAmplitudes" in kwargs:
         relativeAmplitudes = kwargs["relativeAmplitudes"]
+    if "oscillator" in kwargs:
+        oscillator = kwargs["oscillator"]
+    if "amplitudeFunction" in kwargs:
+        amplitudeFunction = kwargs["amplitudeFunction"]
     sinWavList = []
     frequency = baseFrequency
     for x in range(len(relativeAmplitudes)):
-        sinWavList.append(getSignal(duration = duration, frequencyFunction = lambda i: baseFrequency*(x), amplitudeFunction = lambda i: relativeAmplitudes[x]))
+        thisAmplitudeFunction = lambda i: amplitudeFunction(i)*relativeAmplitudes[x]
+        sinWavList.append(getSignal(duration = duration, frequencyFunction = lambda i: baseFrequency*(x), oscillator = oscillator, amplitudeFunction = thisAmplitudeFunction))
     return fastSumSignals(sinWavList)
