@@ -67,6 +67,17 @@ def sumSignals(signals):
     signals[0] = partialSum
     return normalize(sumSignals(signals))
 
+#geta signal which puts together the signals contained in data
+#data is a list of tuples, (signal, lengthOfPauseBeforeNextSignal)
+def assortSignals(data, sampleRate = 48000):
+    output = []
+    for info in data:
+        output += info[0]
+        for i in range(int(info[1]*sampleRate)):
+            output += [0]
+    return output
+
+
 #assumes all signals are the same length
 def fastSumSignals(signals):
     for x in range(len(signals)):
