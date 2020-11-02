@@ -26,6 +26,34 @@ def getSignal(duration = 1, frequencyFunction = lambda i: 440, amplitudeFunction
         signal.append(amplitudeFunction(i)*oscillator((frequencyFunction(i)*2*math.pi)*(i/sampleRate)))
     return clipToEdges(smoothEdges(signal))
 
+#retuan a lambda which is an adsr amplitudeFunction
+#this is a very handy method for constructing amplitudeFunctions for your signals
+def getADSRAmplitudeFunction(a = .1, d = .1, s = .75, r = .05, dur = 1, attackAmp = 1, sustainAmp = .8, sampleRate = 48000, **kwargs):
+    if "attack" in kwargs:
+        a = kwargs["attack"]
+    if "decay" in kwargs:
+        d = kwargs["decay"]
+    if "sustain" in kwargs:
+        s = kwargs["sustain"]
+    if "release" in kwargs:
+        r = kwargs["release"]
+    if "duration" in kwargs:
+        dur = kwargs["duration"]
+    if "attackAmp" in kwargs:
+        attackAmp = kwargs["attackAmp"]
+    if "sustainAmp" in kwargs:
+        sustainAmp = kwargs["sustainAmp"]
+    if "sampleRate" in kwargs:
+        sampleRate = kwargs["sampleRate"]
+    assert(a + d + s + r == 1) #these are proportions
+    aS = a*sampleRate
+    dS = d*sampleRate + aS
+    sS = s*sampleRate + dS + aS
+    rS = r*sampleRate + sS + dS + aS
+    durS = dur*sampleRate
+    func = lambda i: (int(i < aS)*(attackAmp * i/(aS-1)) + int(aS <= i < dS)*(attackAmp + (sustainAmp - attackAmp)*((i - aS)/(dS - 1 - aS))) + int(dS <= i < sS)*(sustainAmp) + int(i >= sS)*(sustainAmp * (durS - i)/(durS - sS)))
+    return func
+
 
 def getKick(duration = .1, amplitude = 1, startingPitch = 440, endingPitch = 70, sampleRate = 48000, oscillator = triangle, **kwargs):
     if "duration" in kwargs:
