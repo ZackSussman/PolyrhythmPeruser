@@ -28,7 +28,7 @@ def getSignal(duration = 1, frequencyFunction = lambda i: 440, amplitudeFunction
 
 #retuan a lambda which is an adsr amplitudeFunction
 #this is a very handy method for constructing amplitudeFunctions for your signals
-def getADSRAmplitudeFunction(a = .1, d = .1, s = .75, r = .05, dur = 1, attackAmp = 1, sustainAmp = .8, sampleRate = 48000, **kwargs):
+def getProportionedADSRAmplitudeFunction(a = .1, d = .1, s = .75, r = .05, dur = 1, attackAmp = 1, sustainAmp = .8, sampleRate = 48000, **kwargs):
     if "attack" in kwargs:
         a = kwargs["attack"]
     if "decay" in kwargs:
@@ -46,12 +46,34 @@ def getADSRAmplitudeFunction(a = .1, d = .1, s = .75, r = .05, dur = 1, attackAm
     if "sampleRate" in kwargs:
         sampleRate = kwargs["sampleRate"]
     assert(a + d + s + r == 1) #these are proportions
-    aS = a*sampleRate
-    dS = d*sampleRate + aS
-    sS = s*sampleRate + dS + aS
-    rS = r*sampleRate + sS + dS + aS
+    aS = a*dur*sampleRate
+    dS = d*dur*sampleRate + aS
+    sS = s*dur*sampleRate + dS + aS
+    rS = r*dur*sampleRate + sS + dS + aS
     durS = dur*sampleRate
     func = lambda i: (int(i < aS)*(attackAmp * i/(aS-1)) + int(aS <= i < dS)*(attackAmp + (sustainAmp - attackAmp)*((i - aS)/(dS - 1 - aS))) + int(dS <= i < sS)*(sustainAmp) + int(i >= sS)*(sustainAmp * (durS - i)/(durS - sS)))
+    return func
+
+def getADSRAmplitudeFunction(aT = .1, dT = .1, sT = .75, rT = .05, attackAmp = 1, sustainAmp = .8, sampleRate = 48000, **kwargs):
+    if "attack" in kwargs:
+        aT = kwargs["attack"]
+    if "decay" in kwargs:
+        dT = kwargs["decay"]
+    if "sustain" in kwargs:
+        sT = kwargs["sustain"]
+    if "release" in kwargs:
+        rT = kwargs["release"]
+    if "attackAmp" in kwargs:
+        attackAmp = kwargs["attackAmp"]
+    if "sustainAmp" in kwargs:
+        sustainAmp = kwargs["sustainAmp"]
+    if "sampleRate" in kwargs:
+        sampleRate = kwargs["sampleRate"]
+    aS = aT*sampleRate
+    dS = dT*sampleRate + aS
+    sS = sT*sampleRate + dS + aS
+    rS = rT*sampleRate + sS + dS + aS
+    func = lambda i: (int(i < aS)*(attackAmp * i/(aS-1)) + int(aS <= i < dS)*(attackAmp + (sustainAmp - attackAmp)*((i - aS)/(dS - 1 - aS))) + int(dS <= i < sS)*(sustainAmp) + int(rS > i >= sS)*(sustainAmp * (rS - i)/(rS - sS)))
     return func
 
 

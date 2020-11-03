@@ -29,8 +29,8 @@ def demo2():
     player.playClip("piece")
 
 def demo3():
-    duration = .3
-    amplitudeFunction = s.getADSRAmplitudeFunction(attack = .05, decay = .04, sustain = .5, release = 1 - .04 - .5 - .05, duration = duration, attackAmp = 1, sustainAmp = .1)
-    snare = s.getSignal(duration = duration, oscillator = s.whitenoise, amplitudeFunction = amplitudeFunction)
+    amplitudeFunction = s.getADSRAmplitudeFunction(attack = .05, decay = .04, sustain = .5, release = 1, attackAmp = 1, sustainAmp = .1)
+    snare = s.getSignal(duration = 4, oscillator = s.whitenoise, amplitudeFunction = amplitudeFunction)
     player.addClip("snare", snare)
     player.playClip("snare")
+
