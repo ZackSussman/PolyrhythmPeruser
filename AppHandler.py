@@ -107,8 +107,8 @@ def getTitleScreen(appWidth, appHeight):
         moveSpeed = 20
         screen.topLeftX += moveSpeed
     completeObjectsToDraw = [drawBgColorObject] + drawMiniSquareObjects + [drawTitleObject] + [drawNameObject] + [drawBeginBoxObject] + [drawBeginTextObject]
-    titleScreen = Screen(completeObjectsToDraw, "pause", 
-                        {"pause":animateNormalPos, "exit":animateExitTitleSlide},
+    titleScreen = Screen(completeObjectsToDraw, "animateNormalPos", 
+                        {"animateNormalPos":animateNormalPos, "exit":animateExitTitleSlide},
                         {"isMouseInsideBeginBox":[isMouseInsideBeginBox, "gold"]})
     return titleScreen
 
@@ -196,13 +196,189 @@ def getPromptUserScreen(appWidth, appHeight):
         if y > downBorder or y < upBorder:
             return False
         return True
-        
+    
+    def drawGoBoxAndText(canvas, x, y, screen):
+        moveDown = appHeight/7
+        halfBoxLength = (appWidth/15)*3/4
+        halfBoxHeight = (appHeight/20)*3/4
+        canvas.create_rectangle(x - halfBoxLength, y - halfBoxHeight + moveDown,
+                                x + halfBoxLength, y + halfBoxHeight + moveDown,
+                                fill = screen.eventControl["mouseInsideGoBox"][1])
+        canvas.create_text(x, y + moveDown, text = "Go", font = "Arial 25 bold")
+    drawGoBoxAndTextObject = ObjectToDraw(appWidth/2, appHeight/2, drawGoBoxAndText)
+
+    def isMouseInsideGoBox(x, y, screen):
+        moveDown = appHeight/7
+        halfBoxLength = (appWidth/15)*3/4
+        halfBoxHeight = (appHeight/20)*3/4
+        leftBound = appWidth/2 - halfBoxLength
+        rightBound = appWidth/2 + halfBoxLength
+        upBound = appHeight/2 + moveDown - halfBoxHeight
+        downBound = appHeight/2 + moveDown + halfBoxHeight
+        if x < leftBound or x > rightBound:
+            return False
+        if y > downBound or y < upBound:
+            return False
+        return True
+
+    def exitDownAnimation(screen):
+        moveSpeed = 20
+        screen.topLeftY += moveSpeed
+
     eventControl = {"mouseClickedInLeftBox":[clickedInLeftBox, "black"],
                     "mouseClickedInRightBox":[clickedInRightBox, "black"],
                     "typedInLeftBox":[None, ""],
-                    "typedInRightBox":[None, ""]}
+                    "typedInRightBox":[None, ""],
+                    "mouseInsideGoBox":[isMouseInsideGoBox, "gold"]}
+    animationStates = {"entrance":animateEntrance, "animateNormalPos":animateNormalPos, "exitDown":exitDownAnimation}
 
+    objectsToDraw = [drawBgColorObject, drawPromptTextObject, drawAgainstTextObject, drawTextBoxesAndTextObject, drawGoBoxAndTextObject]
+    
+    startingAnimationState = "entrance"
 
-    screen = Screen([drawBgColorObject, drawPromptTextObject, drawAgainstTextObject, drawTextBoxesAndTextObject], "entrance", {"entrance":animateEntrance, "animateNormalPos":animateNormalPos}, eventControl, -1*appWidth)
+    screen = Screen(objectsToDraw, startingAnimationState, animationStates, eventControl, -1*appWidth)
     return screen
+
+#num1 and num2 are the two numbers that will create the polyrhythm!
+def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
+
+    def drawBgColor(canvas, x, y, screen):
+        canvas.create_rectangle(x, y, x + appWidth, y + appHeight, fill = "black")
+    drawBgColorObject = ObjectToDraw(0, 0, drawBgColor)
+
+    def drawPlayButton(canvas, x, y, screen):
+        halfLength = appWidth/22
+        halfHeight = (appHeight/17)/2
+        initialY = appHeight*(5/6 + 1)/2
+        canvas.create_rectangle(x + appWidth/2 - halfLength, y + initialY - halfHeight,
+                                x + appWidth/2 + halfLength, y + initialY + halfHeight,
+                                fill = screen.eventControl["isMouseInsidePlayButton"][1])
+    drawPlayButtonObject = ObjectToDraw(0, 0, drawPlayButton)
+
+    def isMouseInsidePlayButton(x, y, screen):
+        halfLength = appWidth/22
+        halfHeight = (appHeight/17)/2
+        initialY = appHeight*(5/6 + 1)/2
+        if x < screen.topLeftX + appWidth/2 - halfLength or x > screen.topLeftX + appWidth/2 + halfLength:
+            return False
+        if y < screen.topLeftY + initialY - halfHeight or y > screen.topLeftY + initialY + halfHeight:
+            return False
+        return True
+
+    def drawBlackTriangle(canvas, x, y, screen):
+        if screen.currentAnimationState == "animatePolyrhythm":
+            return
+        halfLength = appWidth/22
+        halfHeight = (appHeight/17)/2
+        initialY = appHeight*(5/6 + 1)/2
+        topLeftX = x + appWidth/2 - halfLength
+        topLeftY =  y + initialY - halfHeight
+        bottomRightX = x + appWidth/2 + halfLength
+        bottomRightY = y + initialY + halfHeight
+        distFromLeft = halfLength/2
+        distFromRight = halfLength/2
+        upDownMargin = appWidth/20
+        canvas.create_polygon(topLeftX + distFromLeft, topLeftY + upDownMargin, 
+                              topLeftX + distFromLeft, bottomRightY - upDownMargin,
+                              bottomRightX - distFromRight, (topLeftY + bottomRightY)/2, 
+                              fill = "black")
+    drawBlackTriangleObject = ObjectToDraw(0, 0, drawBlackTriangle)
+
+    def drawBlackSquare(canvas, x, y, screen):
+        if screen.currentAnimationState != "animatePolyrhythm":
+            return
+        halfLength = appWidth/22
+        halfHeight = (appHeight/17)/2
+        initialY = appHeight*(5/6 + 1)/2
+        topLeftX = x + appWidth/2 - halfLength
+        topLeftY =  y + initialY - halfHeight
+        bottomRightX = x + appWidth/2 + halfLength
+        bottomRightY = y + initialY + halfHeight
+        distFromLeft = halfLength/2
+        distFromRight = halfLength/2
+        upDownMargin = appWidth/20
+        canvas.create_rectangle(topLeftX + distFromLeft, topLeftY + upDownMargin,
+                                bottomRightX - distFromRight, bottomRightY - upDownMargin, fill = "black")
+    drawBlackSquareObject = ObjectToDraw(0, 0, drawBlackSquare)
+
+    def drawNoteGrid(canvas, x, y, screen):
+        topMargin = appHeight/10
+        bottomMargin = appHeight/6
+        sideMargin = appWidth/10
+        totalGridHeight = appHeight - topMargin - bottomMargin
+        totalGridWidth = appWidth - 2*sideMargin
+        gridSize = (totalGridHeight)/num1 if num1 >= num2 else totalGridWidth/num2
+        canvas.create_rectangle(x + sideMargin, y + topMargin, 
+                                x + sideMargin + totalGridWidth,
+                                y + topMargin + totalGridHeight,
+                                fill = "black", 
+                                outline = "white")
+        xShift = (totalGridWidth - num2*gridSize)/2
+        yShift = (totalGridHeight - num1*gridSize)/2
+        for row in range(num1):
+            for col in range(num2):
+                xCoord = x + sideMargin + gridSize*col + xShift
+                yCoord = y + topMargin + gridSize*row + yShift
+                jumpIn = gridSize*7/10
+                circleColor = 'darkred'
+                if (num2*row + col) % num1 == 0:
+                    circleColor = 'darkgreen'
+                if screen.eventControl["currentDotSelector"] == num2*row + col:
+                    newJumpIn = 3*jumpIn/8
+                    canvas.create_oval(xCoord + newJumpIn, yCoord + newJumpIn, xCoord + gridSize - newJumpIn, yCoord + gridSize - newJumpIn, outline = "white" )
+                canvas.create_oval(xCoord + jumpIn, yCoord + jumpIn, xCoord + gridSize - jumpIn, yCoord + gridSize - jumpIn,
+                fill = circleColor, outline = "black")
+    drawNoteGridObject = ObjectToDraw(0, 0, drawNoteGrid)
+
+    def animatePolyrhythm(screen):
+        screen.eventControl["currentDotSelector"] += 1
+        if screen.eventControl["currentDotSelector"] == num1*num2:
+            screen.eventControl["currentDotSelector"] = 0
+
+
+    def animateEnterDown(screen):
+        moveSpeed = 20
+        screen.topLeftY += moveSpeed
+        if screen.topLeftY > 0:
+            screen.topLeftY = 0
+            screen.currentAnimationState = "animateNormalPos"
+    
+
+    def drawTempoTextBox(canvas, x, y, screen):
+        leftMargin = appWidth/20
+        bottomMargin = appHeight/20
+        boxLength = appWidth/9
+        boxHeight = appHeight/18
+        canvas.create_rectangle(x + leftMargin, y + appHeight - boxHeight - bottomMargin ,
+                                x + leftMargin + boxLength, y + appWidth - bottomMargin, fill = "white")
+        canvas.create_rectangle(x + leftMargin, y + appHeight - boxHeight - bottomMargin ,
+                                x + leftMargin + boxLength, y + appWidth - bottomMargin, outline = screen.eventControl["mouseInsideTempoBox"][1])
+        canvas.create_text(x + leftMargin + boxLength/2, y +  appWidth - (bottomMargin + boxHeight)*12/10, text = "Tempo", font = "Arial 16 bold", fill = "white")
+        canvas.create_text(x + leftMargin + boxLength/2, y + appWidth - (bottomMargin) + -1*boxHeight/2, text = screen.eventControl["typedInsideTempoBox"][1], font = "Arial 22 bold")
+    
+    drawTempoTextBoxObject = ObjectToDraw(0, 0, drawTempoTextBox)
+
+    def mouseInsideTempoBox(x, y, screen):
+        leftMargin = appWidth/20
+        bottomMargin = appHeight/20
+        boxLength = appWidth/9
+        boxHeight = appHeight/18
+        if x > leftMargin and x < leftMargin + boxLength and y > appHeight - boxHeight - bottomMargin and y < appHeight - bottomMargin:
+            return True
+        return False
+
+    def animateNormalPos(screen):
+        pass
+
+    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "60"]}
+    
+
+    animationState = {"enterDown":animateEnterDown, "animateNormalPos":animateNormalPos, "animatePolyrhythm":animatePolyrhythm}
+
+    drawingObjects = [drawBgColorObject, drawNoteGridObject, drawPlayButtonObject, drawBlackTriangleObject, drawBlackSquareObject, drawTempoTextBoxObject]
+
+
+
+    screen = Screen(drawingObjects, "enterDown", animationState, eventControl, 0, -1*appHeight)
+    return screen    
 
