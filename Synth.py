@@ -18,11 +18,12 @@ class Synthesizer():
         self.bufferSize = bufferSize
         self.maxAmplitude = maxAmplitude
         self.bufferNum = 0
-        self.fadingIn = False
+        self.fadingIn = False #used for more expressive longer note attacks
         self.fadingOut = False
         self.noteOn = False
         self.amplitudeControlCoef = 1
         self.frequency = frequency
+        self.hitFadingIn = False #used for very fast sharp hits
 
     def turnNoteOn(self):
         self.fadingIn = True
@@ -30,6 +31,13 @@ class Synthesizer():
         if self.fadingOut:
             self.amplitudeControlCoef = 1 - self.amplitudeControlCoef
             self.fadingOut = False
+
+    #use for a short percussive sound
+    def createHit(self):
+        self.fadingIn = True #this will happen very quickly so we just set fadingOut to True here
+        self.fadingOut = True
+        self.noteOn = True
+        #we are not fading in and out at the same time but this is the nicest way to do it
 
     def setFrequency(self, freq):
         self.frequency = freq
@@ -52,13 +60,15 @@ class Synthesizer():
         self.bufferNum += 1
 
         if not self.fadingIn and not self.fadingOut:
+            self.hitFadingIn = True
+            self.fadingOut = True
             return audioData
 
         if self.fadingIn:
             for i in range(len(audioData)):
                 audioData[i] = self.dtype(audioData[i] * (1 - self.amplitudeControlCoef))
-                self.amplitudeControlCoef *= .999
-            if self.amplitudeControlCoef < 0.0001:
+                self.amplitudeControlCoef *= .9
+            if self.amplitudeControlCoef < 0.001:
                 self.fadingIn = False
                 self.amplitudeControlCoef = 1 - self.amplitudeControlCoef
         else:
