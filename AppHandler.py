@@ -1,4 +1,4 @@
-import math, random
+import math, random, numpy as np
 
 #utility functions -------------------------
 #taken from 112 course website
@@ -340,6 +340,7 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
             if screen.eventControl["currentDotSelector"] == num1*num2:
                 screen.eventControl["currentDotSelector"] = 0
             screen.eventControl["animateStepActive"] = False
+        updateVolumeBarHeight(screen)
 
     def animateEnterDown(screen):
         moveSpeed = 20
@@ -348,6 +349,17 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
             screen.topLeftY = 0
             screen.currentAnimationState = "animateNormalPos"
     
+
+    def drawVolumeBar(canvas, x, y, screen):
+        volumeHeight = screen.eventControl["getVolumeHeight"][0]
+        rectWidth = 40
+        rectHeight = appWidth/8
+        canvas.create_line(x + appWidth/2 - rectWidth/2 - 20, y + appHeight/2 + rectHeight/2,
+                                x + appWidth/2 + rectWidth/2 + 20, y + appHeight/2 + rectHeight/2, fill = "white")
+        canvas.create_rectangle(x + appWidth/2 - rectWidth/2,y + appHeight/2 + rectHeight/2 - volumeHeight,
+                                x + appWidth/2 + rectWidth/2,y +  appHeight/2 + rectHeight/2, fill = "green")
+
+    drawVolumeBarObject = ObjectToDraw(9*appWidth/10 + (appWidth/10 - 40)/2 - appWidth/2 + appWidth/40, 5*appHeight/408, drawVolumeBar)
 
     def drawTempoTextBox(canvas, x, y, screen):
         leftMargin = appWidth/20
@@ -372,15 +384,22 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
             return True
         return False
 
-    def animateNormalPos(screen):
-        pass
+    #for all animations to use in this screen
+    def updateVolumeBarHeight(screen):
+        maxAmplitude = 32767/3 #we like it to be higher for even small volume inputs 
+        #it's a better user experience (so we multiply the actual max by 3)
+        rectHeight = appHeight/18
+        screen.eventControl["getVolumeHeight"][0] = np.abs((screen.eventControl["getVolumeHeight"][1]/(maxAmplitude))*rectHeight)
 
-    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False}
+    def animateNormalPos(screen):
+        updateVolumeBarHeight(screen)
+
+    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0]}
     
 
     animationState = {"enterDown":animateEnterDown, "animateNormalPos":animateNormalPos, "animatePolyrhythm":animatePolyrhythm}
 
-    drawingObjects = [drawBgColorObject, drawNoteGridObject, drawPlayButtonObject, drawBlackTriangleObject, drawBlackSquareObject, drawTempoTextBoxObject]
+    drawingObjects = [drawBgColorObject, drawNoteGridObject, drawPlayButtonObject, drawBlackTriangleObject, drawBlackSquareObject, drawTempoTextBoxObject, drawVolumeBarObject]
 
 
 
