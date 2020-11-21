@@ -2,7 +2,7 @@ from cmu_112_graphics import *
 import AppHandler as handler
 import time
 import Synth
-import time, pyaudio, numpy as np
+import pyaudio, numpy as np
 
 class MainApp(App):
     def appStarted(self):
@@ -144,7 +144,7 @@ class MainApp(App):
         if self.learnPolyrhythmScreen in self.currentScreens:
             if not event.key.isnumeric() and event.key != "Delete" and event.key != "Space":
                 return
-            if self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] == "gold":
+            if self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] == "gold" and event.key != "Space":
                 if event.key == "Delete":
                     self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] = self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1][:-1]
                     if self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] != "":
@@ -155,7 +155,8 @@ class MainApp(App):
                 if self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] != "":
                     self.updateTempo()
             elif event.key == "Space":
-                self.handlePlayPause()
+                if self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] != "gold" and self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] != "":
+                    self.handlePlayPause()
 
     def handlePlayPause(self):
         if self.learnPolyrhythmScreen.currentAnimationState == "animateNormalPos":
