@@ -13,6 +13,11 @@ class MainApp(App):
         self.polyrhythmStartTime = None #polyrhythm hasn't started yet
         self.numClicksSinceStart = 0 #haven't started yet
         self.initializeAudio()
+        self.initializeVolumeBarParameters()
+    
+    def initializeVolumeBarParameters(self):
+        self.faderSpeed = .9
+        self.hitTolerance = self.maxAmplitude/100
 
     def appStopped(self):
         self.outputStream.stop_stream()
@@ -65,6 +70,15 @@ class MainApp(App):
         return (data, pyaudio.paContinue)
 
     def inputAudioStreamCallback(self, inputAudio, frameCount, timeInfo, status):
+        if self.learnPolyrhythmScreen in self.currentScreens:
+            newAudioInData = np.frombuffer(inputAudio, dtype = self.dtype)
+            lastMaxValue = self.learnPolyrhythmScreen.eventControl["getVolumeHeight"][1]
+            volumeScale = np.max(newAudioInData)
+            if volumeScale - lastMaxValue > self.hitTolerance:
+                lastMaxValue = volumeScale
+            else:
+                lastMaxValue = self.faderSpeed*(lastMaxValue)
+            self.learnPolyrhythmScreen.eventControl["getVolumeHeight"][1] = lastMaxValue
         return (inputAudio, pyaudio.paContinue)
 
     def timerFired(self):
