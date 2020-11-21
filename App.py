@@ -23,8 +23,9 @@ class MainApp(App):
         framesPerBuffer = 2**10 #samples per buffer
         channels = 1
         rate = 48000 #samples per second
-        dType = pyaudio.paInt16
-        maxAmplitude = 32767 #paInt16
+        dType = pyaudio.paInt16 #for pyaudio
+        self.dtype = np.int16 #for numpy
+        self.maxAmplitude = 32767 #paInt16
         #-------------------------------------------
         self.pyAudio = pyaudio.PyAudio()
         #---------------------------------------- setup output stream
@@ -50,13 +51,16 @@ class MainApp(App):
         self.inputStream.start_stream()
         #------------------------------------------
         #------------------------------------------ initialize synth
-        self.synth = Synth.Synthesizer(440, rate, (2* np.pi, np.sin), framesPerBuffer, np.int16, maxAmplitude)
+        self.slowSynth = Synth.Synthesizer(440, rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/2)
+        self.fastSynth = Synth.Synthesizer(660, rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/2)
         #------------------------------------------
 
 
     def outputAudioStreamCallback(self, inputAudio, frameCount, timeInfo, status):
-        audioData = self.synth.getAudioData()
-        return (audioData, pyaudio.paContinue)
+        slowSynthData = self.slowSynth.getAudioData()
+        fastSynthData = self.fastSynth.getAudioData()
+        data = slowSynthData + fastSynthData
+        return (data, pyaudio.paContinue)
 
     def inputAudioStreamCallback(self, inputAudio, frameCount, timeInfo, status):
         return (inputAudio, pyaudio.paContinue)
@@ -117,10 +121,8 @@ class MainApp(App):
                     self.updateTempo()
                     self.polyrhythmStartTime = time.time()
                     self.numClicksSinceStart = 0
-                    self.synth.turnNoteOn()
                 else:
                     self.learnPolyrhythmScreen.currentAnimationState = "animateNormalPos"
-                    self.synth.turnNoteOff()
             if self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][0](event.x, event.y, self.learnPolyrhythmScreen):
                 self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] = "gold"
             else:
@@ -166,6 +168,25 @@ class MainApp(App):
             self.timePerClick = miliSecondsPerQuarterNote/timerFiresPerQuarterNote
 
             
+    #this gets called every time the animation steps. If we are at a time when a note should be played or turned off,
+    #this function is what does that
+    def updatePolyrhythmNotes(self):
+        num1 = int(self.promptUserScreen.eventControl["typedInRightBox"][1])
+        num2 = int(self.promptUserScreen.eventControl["typedInLeftBox"][1])
+        currentNote = self.learnPolyrhythmScreen.eventControl["currentDotSelector"]
+        #activate faster note
+        if currentNote % num1 == (num1 - 1):
+            self.fastSynth.turnNoteOn()
+        elif currentNote % num1 == 0:
+            self.fastSynth.turnNoteOff() #only last for one minibeat for a quick pulse
+        #activate slowernote
+        if currentNote % num2 == (num2 - 1):
+            self.slowSynth.turnNoteOn()
+        elif currentNote % num2 == 0:
+            self.slowSynth.turnNoteOff()
+
+
+
 
     #decide based on time data and tempo whether or not we need to step the polyrhythm animation
     def timeToDoAStep(self):
@@ -173,6 +194,7 @@ class MainApp(App):
         timeToBePast = self.numClicksSinceStart*self.timePerClick
         if elapsedTimeSinceStart > timeToBePast:
             self.numClicksSinceStart += 1
+            self.updatePolyrhythmNotes()
             return True
         return False
             
