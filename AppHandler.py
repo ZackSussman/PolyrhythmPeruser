@@ -371,7 +371,7 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
     def animateNormalPos(screen):
         pass
 
-    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "60"], "animateStepActive":False}
+    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False}
     
 
     animationState = {"enterDown":animateEnterDown, "animateNormalPos":animateNormalPos, "animatePolyrhythm":animatePolyrhythm}
