@@ -323,6 +323,10 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
                 circleColor = 'darkred'
                 if (num2*row + col) % num1 == 0:
                     circleColor = 'darkgreen'
+                if col == 0:
+                    circleColor = 'darkblue'
+                    if row == 0: circleColor = 'turquoise'
+                
                 if screen.eventControl["currentDotSelector"] == num2*row + col:
                     newJumpIn = 3*jumpIn/8
                     canvas.create_oval(xCoord + newJumpIn, yCoord + newJumpIn, xCoord + gridSize - newJumpIn, yCoord + gridSize - newJumpIn, outline = "white" )
