@@ -51,15 +51,17 @@ class MainApp(App):
         self.inputStream.start_stream()
         #------------------------------------------
         #------------------------------------------ initialize synth
-        self.slowSynth = Synth.Synthesizer(440, rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/2)
-        self.fastSynth = Synth.Synthesizer(660, rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/2)
+        self.slowSynth = Synth.Synthesizer(520, rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/3)
+        self.fastSynth = Synth.Synthesizer(520*(5/3), rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/3)
+        self.countSynth = Synth.Synthesizer(420*(5/2), rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/15)
         #------------------------------------------
 
 
     def outputAudioStreamCallback(self, inputAudio, frameCount, timeInfo, status):
         slowSynthData = self.slowSynth.getAudioData()
         fastSynthData = self.fastSynth.getAudioData()
-        data = slowSynthData + fastSynthData
+        countSynthData = self.countSynth.getAudioData()
+        data = slowSynthData + fastSynthData + countSynthData
         return (data, pyaudio.paContinue)
 
     def inputAudioStreamCallback(self, inputAudio, frameCount, timeInfo, status):
@@ -116,13 +118,7 @@ class MainApp(App):
                     self.currentScreens.append(self.learnPolyrhythmScreen)
         if self.learnPolyrhythmScreen in self.currentScreens and self.learnPolyrhythmScreen.currentAnimationState in ["animateNormalPos", "animatePolyrhythm"]:
             if self.learnPolyrhythmScreen.eventControl["isMouseInsidePlayButton"][0](event.x, event.y, self.learnPolyrhythmScreen):
-                if self.learnPolyrhythmScreen.currentAnimationState == "animateNormalPos":
-                    self.learnPolyrhythmScreen.currentAnimationState = "animatePolyrhythm"
-                    self.updateTempo()
-                    self.polyrhythmStartTime = time.time()
-                    self.numClicksSinceStart = 0
-                else:
-                    self.learnPolyrhythmScreen.currentAnimationState = "animateNormalPos"
+                self.handlePlayPause()
             if self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][0](event.x, event.y, self.learnPolyrhythmScreen):
                 self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] = "gold"
             else:
@@ -146,7 +142,7 @@ class MainApp(App):
                 if len(self.promptUserScreen.eventControl["typedInRightBox"][1]) < 5:
                     self.promptUserScreen.eventControl["typedInRightBox"][1] += event.key
         if self.learnPolyrhythmScreen in self.currentScreens:
-            if not event.key.isnumeric() and event.key != "Delete":
+            if not event.key.isnumeric() and event.key != "Delete" and event.key != "Space":
                 return
             if self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] == "gold":
                 if event.key == "Delete":
@@ -158,7 +154,19 @@ class MainApp(App):
                     self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] += event.key
                 if self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] != "":
                     self.updateTempo()
-                
+            elif event.key == "Space":
+                self.handlePlayPause()
+
+    def handlePlayPause(self):
+        if self.learnPolyrhythmScreen.currentAnimationState == "animateNormalPos":
+            self.learnPolyrhythmScreen.currentAnimationState = "animatePolyrhythm"
+            self.updateTempo()
+            self.polyrhythmStartTime = time.time()
+            self.numClicksSinceStart = 0
+        else:
+            self.learnPolyrhythmScreen.currentAnimationState = "animateNormalPos"
+            self.fastSynth.turnNoteOff()
+            self.slowSynth.turnNoteOff()
 
     def updateTempo(self):
         tempo = int(self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1])
@@ -171,20 +179,19 @@ class MainApp(App):
     #this gets called every time the animation steps. If we are at a time when a note should be played or turned off,
     #this function is what does that
     def updatePolyrhythmNotes(self):
+ 
         num1 = int(self.promptUserScreen.eventControl["typedInRightBox"][1])
         num2 = int(self.promptUserScreen.eventControl["typedInLeftBox"][1])
         currentNote = self.learnPolyrhythmScreen.eventControl["currentDotSelector"]
         #activate faster note
         if currentNote % num1 == (num1 - 1):
-            self.fastSynth.turnNoteOn()
-        elif currentNote % num1 == 0:
-            self.fastSynth.turnNoteOff() #only last for one minibeat for a quick pulse
+            self.fastSynth.createHit()
+
         #activate slowernote
         if currentNote % num2 == (num2 - 1):
-            self.slowSynth.turnNoteOn()
-        elif currentNote % num2 == 0:
-            self.slowSynth.turnNoteOff()
-
+            self.slowSynth.createHit()
+        
+        self.countSynth.createHit()
 
 
 
