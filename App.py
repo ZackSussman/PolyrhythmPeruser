@@ -1,17 +1,26 @@
 from cmu_112_graphics import *
 import AppHandler as handler
+import time
 
 def appStarted(app):
     app.titleScreen = handler.getTitleScreen(app.width, app.height)
     app.currentScreens = [app.titleScreen]
     app.promptUserScreen = handler.getPromptUserScreen(app.width, app.height)
     app.learnPolyrhythmScreen = None #initialize to None because we don't know what the polyrhythm is yet
+    app.polyrhythmStartTime = None #polyrhythm hasn't started yet
+    app.numClicksSinceStart = 0 #haven't started yet
     
 def timerFired(app):
+    if app.learnPolyrhythmScreen in app.currentScreens and app.learnPolyrhythmScreen.currentAnimationState == "animatePolyrhythm":
+        if timeToDoAStep(app):
+            app.learnPolyrhythmScreen.eventControl["animateStepActive"] = True
     for screen in app.currentScreens:
         screen.doAnimationStep()
     if app.currentScreens[-1].currentAnimationState == "animateNormalPos":
         app.currentScreens = [app.currentScreens[-1]]
+    if app.learnPolyrhythmScreen in app.currentScreens:
+        print(app.learnPolyrhythmScreen.currentAnimationState)
+        print(app.learnPolyrhythmScreen.eventControl["currentDotSelector"])
 
 def mouseMoved(app, event):
     if app.titleScreen in app.currentScreens and app.titleScreen.currentAnimationState == "animateNormalPos":
@@ -57,6 +66,9 @@ def mousePressed(app, event):
         if app.learnPolyrhythmScreen.eventControl["isMouseInsidePlayButton"][0](event.x, event.y, app.learnPolyrhythmScreen):
             if app.learnPolyrhythmScreen.currentAnimationState == "animateNormalPos":
                 app.learnPolyrhythmScreen.currentAnimationState = "animatePolyrhythm"
+                updateTempo(app)
+                app.polyrhythmStartTime = time.time()
+                app.numClicksSinceStart = 0
             else:
                 app.learnPolyrhythmScreen.currentAnimationState = "animateNormalPos"
         if app.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][0](event.x, event.y, app.learnPolyrhythmScreen):
@@ -87,16 +99,34 @@ def keyPressed(app, event):
         if app.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] == "gold":
             if event.key == "Delete":
                 app.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] = app.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1][:-1]
+                if app.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] != "":
+                    updateTempo(app)
                 return
             if len(app.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1]) < 5:
                 app.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] += event.key
-            
             if app.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] != "":
-                tempo = int(app.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1])
-                timerFiresPerQuarterNote = int(app.promptUserScreen.eventControl["typedInLeftBox"][1])
-                miliSecondsPerQuarterNote = (1/tempo)*(60)*(1000)
-                app.timerDelay = int(miliSecondsPerQuarterNote/timerFiresPerQuarterNote)
+                updateTempo(app)
             
+
+def updateTempo(app):
+    tempo = int(app.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1])
+    if tempo != 0:
+        timerFiresPerQuarterNote = int(app.promptUserScreen.eventControl["typedInLeftBox"][1])
+        miliSecondsPerQuarterNote = (1/tempo)*(60)*(1000)
+        app.timePerClick = miliSecondsPerQuarterNote/timerFiresPerQuarterNote
+
+        
+
+#decide based on time data and tempo whether or not we need to step the polyrhythm animation
+def timeToDoAStep(app):
+    elapsedTimeSinceStart = (time.time() - app.polyrhythmStartTime) * 1000 #miliseconds
+    timeToBePast = app.numClicksSinceStart*app.timePerClick
+    if elapsedTimeSinceStart > timeToBePast:
+        app.numClicksSinceStart += 1
+        return True
+    return False
+        
+
 
 def redrawAll(app, canvas):
     for screen in app.currentScreens:
