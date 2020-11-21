@@ -331,10 +331,11 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
     drawNoteGridObject = ObjectToDraw(0, 0, drawNoteGrid)
 
     def animatePolyrhythm(screen):
-        screen.eventControl["currentDotSelector"] += 1
-        if screen.eventControl["currentDotSelector"] == num1*num2:
-            screen.eventControl["currentDotSelector"] = 0
-
+        if screen.eventControl["animateStepActive"]:
+            screen.eventControl["currentDotSelector"] += 1
+            if screen.eventControl["currentDotSelector"] == num1*num2:
+                screen.eventControl["currentDotSelector"] = 0
+            screen.eventControl["animateStepActive"] = False
 
     def animateEnterDown(screen):
         moveSpeed = 20
@@ -370,7 +371,7 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
     def animateNormalPos(screen):
         pass
 
-    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "60"]}
+    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "60"], "animateStepActive":False}
     
 
     animationState = {"enterDown":animateEnterDown, "animateNormalPos":animateNormalPos, "animatePolyrhythm":animatePolyrhythm}
