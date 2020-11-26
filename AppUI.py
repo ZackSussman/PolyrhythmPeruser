@@ -1,9 +1,24 @@
 import math, random, numpy as np
 
 #utility functions -------------------------
-#taken from 112 course website
+
+#taken from 112 course website------------
 def rgbColorString(r, g, b):
     return f'#{r:02x}{g:02x}{b:02x}'
+
+#modified tolerance
+def almostEqual(x, y):
+    return abs(x - y) < 0.02 #time per buffer
+
+#-------------------------------------
+
+#this was fun to write!
+def inverseRgbColorString(colorString):
+    colorString = colorString[1:]
+    rString = colorString[:2]
+    gString = colorString[2:4]
+    bString = colorString[4:]
+    return int(rString, 16), int(gString, 16), int(bString, 16)
 #---------------------------------------
 
 
@@ -320,18 +335,12 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
                 xCoord = x + sideMargin + gridSize*col + xShift
                 yCoord = y + topMargin + gridSize*row + yShift
                 jumpIn = gridSize*7/10
-                circleColor = 'darkred'
-                if (num2*row + col) % num1 == 0:
-                    circleColor = 'darkgreen'
-                if col == 0:
-                    circleColor = 'darkblue'
-                    if row == 0: circleColor = 'turquoise'
-                
+
                 if screen.eventControl["currentDotSelector"] == num2*row + col:
                     newJumpIn = 3*jumpIn/8
                     canvas.create_oval(xCoord + newJumpIn, yCoord + newJumpIn, xCoord + gridSize - newJumpIn, yCoord + gridSize - newJumpIn, outline = "white" )
                 canvas.create_oval(xCoord + jumpIn, yCoord + jumpIn, xCoord + gridSize - jumpIn, yCoord + gridSize - jumpIn,
-                fill = circleColor, outline = "black")
+                fill = screen.eventControl["dotColors"][num2*row + col], outline = "black")
     drawNoteGridObject = ObjectToDraw(0, 0, drawNoteGrid)
 
     def animatePolyrhythm(screen):
@@ -354,10 +363,10 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
         volumeHeight = screen.eventControl["getVolumeHeight"][0]
         rectWidth = 40
         rectHeight = appWidth/8
-        canvas.create_line(x + appWidth/2 - rectWidth/2 - 20, y + appHeight/2 + rectHeight/2,
-                                x + appWidth/2 + rectWidth/2 + 20, y + appHeight/2 + rectHeight/2, fill = "white")
         canvas.create_rectangle(x + appWidth/2 - rectWidth/2,y + appHeight/2 + rectHeight/2 - volumeHeight,
                                 x + appWidth/2 + rectWidth/2,y +  appHeight/2 + rectHeight/2, fill = "green")
+        canvas.create_line(x + appWidth/2 - rectWidth/2 - 20, y + appHeight/2 + rectHeight/2,
+                                x + appWidth/2 + rectWidth/2 + 20, y + appHeight/2 + rectHeight/2, fill = "white")
 
     drawVolumeBarObject = ObjectToDraw(9*appWidth/10 + (appWidth/10 - 40)/2 - appWidth/2 + appWidth/40, 5*appHeight/408, drawVolumeBar)
 
@@ -389,12 +398,22 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
         maxAmplitude = 32767/3 #we like it to be higher for even small volume inputs 
         #it's a better user experience (so we multiply the actual max by 3)
         rectHeight = appHeight/18
-        screen.eventControl["getVolumeHeight"][0] = np.abs((screen.eventControl["getVolumeHeight"][1]/(maxAmplitude))*rectHeight)
+        screen.eventControl["getVolumeHeight"][0] = 2.5*np.abs((screen.eventControl["getVolumeHeight"][1]/(maxAmplitude))*rectHeight)
 
     def animateNormalPos(screen):
         updateVolumeBarHeight(screen)
 
-    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0]}
+    defaultDotColors = [rgbColorString(140, 0, 0)] * (num1*num2)
+
+    for x in range(num1*num2):
+        if x % num2 == 0 and x % num1 == 0:
+            defaultDotColors[x] = rgbColorString(0, 140, 140)
+        elif x % num1 == 0:
+            defaultDotColors[x] = rgbColorString(0, 140, 0)
+        elif x % num2 == 0:
+            defaultDotColors[x] = rgbColorString(0, 0, 140)
+
+    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0], "dotColors": defaultDotColors}
     
 
     animationState = {"enterDown":animateEnterDown, "animateNormalPos":animateNormalPos, "animatePolyrhythm":animatePolyrhythm}
