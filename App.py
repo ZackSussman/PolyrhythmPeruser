@@ -1,14 +1,14 @@
 from cmu_112_graphics import * #cmu 112 graphics taken from the course website
-import AppHandler as handler
+import AppUI as ui
 import time
 import Synth
 import pyaudio, numpy as np
 
 class MainApp(App):
     def appStarted(self):
-        self.titleScreen = handler.getTitleScreen(self.width, self.height)
+        self.titleScreen = ui.getTitleScreen(self.width, self.height)
         self.currentScreens = [self.titleScreen]
-        self.promptUserScreen = handler.getPromptUserScreen(self.width, self.height)
+        self.promptUserScreen = ui.getPromptUserScreen(self.width, self.height)
         self.learnPolyrhythmScreen = None #initialize to None because we don't know what the polyrhythm is yet
         
         
@@ -17,13 +17,14 @@ class MainApp(App):
 
         #-----the following variables are used to keep track of polyrhythm data along with user input
 
-        self.rhythmIndex = 0 #the number of subPulses that we have had so far
+        self.rhythmIndex = 0 #the index of the next note to be played
         self.timePerSubPulse = None #we can't compute this yet but it will be updated
         #the subpulse time is the time per miniclick that should be felt underneath the polyrhythm, being played by countSynth
 
         self.timeSinceStart = 0 #keeps track of the elapsed time over which the polyrhythm has been playing since the first press of the play button
         self.timeAtLastNote = 0 #the time at which the most recent note was struck
 
+        self.hasUserTappedNote = False #tells us whether or not to listen to user input for the current note to be played
         
         self.initializeAudio()
         self.initializeVolumeBarParameters()
@@ -86,15 +87,24 @@ class MainApp(App):
             num1, num2 = self.getPolyrhythm()
             if self.timeSinceStart >= self.timeAtLastNote + self.timePerSubPulse:
                 self.timeAtLastNote = self.timeSinceStart
+               
+                if self.rhythmIndex != 0: #if we do this from the start the dot will always be one move ahead
+                    self.learnPolyrhythmScreen.eventControl["animateStepActive"] = True
+                
                 self.countSynth.createHit()
-                self.rhythmIndex += 1
-                self.learnPolyrhythmScreen.eventControl["animateStepActive"] = True
-                if self.rhythmIndex % num1 == 0:
-                    self.slowSynth.createHit()
                 if self.rhythmIndex % num2 == 0:
                     self.fastSynth.createHit()
+                if self.rhythmIndex % num1 == 0:
+                    self.slowSynth.createHit()
+
+                self.rhythmIndex += 1
+            
+            #constantly test this
+            if self.testForSwitchoverToNewNote():
+                self.hasUserTappedNote = False
+
             self.timeSinceStart += self.timePerBuffer
-        
+
 
         slowSynthData = self.slowSynth.getAudioData()
         fastSynthData = self.fastSynth.getAudioData()
@@ -160,7 +170,7 @@ class MainApp(App):
             if self.promptUserScreen.eventControl["mouseInsideGoBox"][0](event.x, event.y, self.promptUserScreen):
                 if self.promptUserScreen.eventControl["typedInLeftBox"][1] != "" and self.promptUserScreen.eventControl["typedInRightBox"][1] != "":
                     num1, num2 = self.getPolyrhythm()
-                    self.learnPolyrhythmScreen = handler.getLearnPolyrhythmScreen(self.width, self.height, num2, num1)
+                    self.learnPolyrhythmScreen = ui.getLearnPolyrhythmScreen(self.width, self.height, num2, num1)
                     self.promptUserScreen.currentAnimationState = "exitDown"
                     self.currentScreens.append(self.learnPolyrhythmScreen)
                     self.handleTempoChange() #this can also initialize tempo related variables
@@ -209,10 +219,93 @@ class MainApp(App):
             if self.learnPolyrhythmScreen.currentAnimationState == "animatePolyrhythm":
                 self.handleUserDrumming(event.key)
     
-    def handleUserDrumming(self, input):
-        pass
+    #simply test to see if it is time to reset the state of whether the user tried to press the note
+    def testForSwitchoverToNewNote(self):
+        num1, num2 = self.getPolyrhythm()
+        timeToPastClick = self.timeSinceStart - self.timeAtLastNote #at this note, rhythmIndex was the current rhythmIndex - 1
+        timeToNextClick = self.timeAtLastNote + self.timePerSubPulse - self.timeSinceStart #at this note, rhythmIndex will be the current rhythmIndex
 
-        
+        pastRhythmClick = self.getPastRhythmClick()
+        nextRhythmClick = self.getNextRhythmClick()
+
+
+
+        timeToPastRhythmClick = timeToPastClick + self.timePerSubPulse*(self.rhythmIndex - 1 - pastRhythmClick)
+        timeToNextRhythmClick = timeToNextClick + self.timePerSubPulse*(nextRhythmClick - self.rhythmIndex)
+
+        return ui.almostEqual(timeToPastRhythmClick, timeToNextRhythmClick)
+
+    def handleUserDrumming(self, input):
+        num1, num2 = self.getPolyrhythm()
+        timeToPastClick = self.timeSinceStart - self.timeAtLastNote #at this note, rhythmIndex was the current rhythmIndex - 1
+        timeToNextClick = self.timeAtLastNote + self.timePerSubPulse - self.timeSinceStart #at this note, rhythmIndex will be the current rhythmIndex
+
+        pastRhythmClick = self.getPastRhythmClick()
+        nextRhythmClick = self.getNextRhythmClick()
+
+        timeToPastRhythmClick = timeToPastClick + self.timePerSubPulse*(self.rhythmIndex - 1 - pastRhythmClick)
+        timeToNextRhythmClick = timeToNextClick + self.timePerSubPulse*(nextRhythmClick - self.rhythmIndex)
+
+        timeToUse = None
+        indexToUse = None
+
+        if timeToNextRhythmClick < timeToPastRhythmClick:
+            timeToUse = timeToNextRhythmClick
+            indexToUse = nextRhythmClick
+        else:
+            timeToUse = timeToPastRhythmClick
+            indexToUse = pastRhythmClick
+
+
+        if not self.hasUserTappedNote:
+            self.hasUserTappedNote = True
+            self.updateNoteColor(timeToUse, indexToUse)
+
+
+
+
+
+    #return the index of the last note which was played
+    def getPastRhythmClick(self):
+        num1, num2 = self.getPolyrhythm()
+        start = self.rhythmIndex - 1
+        while start % num1 != 0 and start % num2 != 0:
+            start -= 1
+        return start
+
+    #return the index of the next note which will be played
+    def getNextRhythmClick(self):
+        num1, num2 = self.getPolyrhythm()
+        start = self.rhythmIndex
+        while start % num1 != 0 and start % num2 != 0:
+            start += 1
+        return start
+
+ 
+
+
+
+    def updateNoteColor(self, time, noteIndex):
+        num1, num2 = self.getPolyrhythm()
+        assert(noteIndex % num1 == 0 or noteIndex % num2 == 0)
+        time = abs(time)
+        if time > self.timePerSubPulse/2: time = self.timePerSubPulse/2
+        #we convert the time to a color value from 0 to 255, the maximum time is half the sub pulse time
+        #multiply by .3 so it can never go completly black
+        colorValue = int(255*(1 - .7*((time/(self.timePerSubPulse/2))**3)))
+        noteIndex %= (num1*num2)
+        currentColor = ui.inverseRgbColorString(self.learnPolyrhythmScreen.eventControl["dotColors"][noteIndex])
+        if currentColor[1] == 0: #then the color looks like (0, 0, x)
+            currentColor = (0, 0, colorValue)
+        elif currentColor[2] == 0: #then the color looks like (0, x, 0)
+            currentColor = (0, colorValue, 0)
+        else: #color looks like (0, x, x)
+            currentColor = (0, colorValue, colorValue)
+        self.learnPolyrhythmScreen.eventControl["dotColors"][noteIndex] = ui.rgbColorString(currentColor[0], currentColor[1], currentColor[2])
+
+
+
+
 
 
     #called whenever the play or paused button (same button) is pressed
