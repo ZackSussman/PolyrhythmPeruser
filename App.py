@@ -105,9 +105,8 @@ class MainApp(App):
             if self.testForSwitchoverToNewNote():
                 self.justDetectedAMiddlePoint = True
             elif self.justDetectedAMiddlePoint:
-                print("NOW!")
                 if self.hasUserTappedNote == False: #they completely missed the note!
-                    self.updateNoteColor(self.timePerSubPulse/2, self.getPastRhythmClick())
+                    self.updateNoteColor(self.timePerSubPulse, self.getPastRhythmClick())
                 self.hasUserTappedNote = False
                 self.justDetectedAMiddlePoint = False
 
@@ -296,14 +295,27 @@ class MainApp(App):
 
 
     def updateNoteColor(self, time, noteIndex):
+        time -= 10*self.timePerBuffer #account for latency
         self.hasUserTappedNote = True
         num1, num2 = self.getPolyrhythm()
         assert(noteIndex % num1 == 0 or noteIndex % num2 == 0)
         time = abs(time)
+
+        colorValue = None
         if time > self.timePerSubPulse/2: time = self.timePerSubPulse/2
-        #we convert the time to a color value from 0 to 255, the maximum time is half the sub pulse time
-        #multiply by .3 so it can never go completly black
-        colorValue = int(255*(1 - .7*((time/(self.timePerSubPulse/2))**3)))
+        print(self.timePerSubPulse)
+        if self.timePerSubPulse >  0.08: #this value was found through testing 
+            print("slow")
+            #in the worst case here the user must tap .125/4 seconds of the beat to hear feedback
+            #we convert the time to a color value from 0 to 255, the maximum time is half the sub pulse time
+            #multiply by .3 so it can never go completly black
+            colorValue = int(255*(1 - .7*((time/(self.timePerSubPulse/2))**3)))
+        else:
+            print("fast")
+            #the beat is VERY fast so we ease up a bit on the algorithm for computing brightness to allow for more lax feedback
+            colorValue = int(255*(1 - .7*((time/(self.timePerSubPulse/2))**5)))
+
+
         noteIndex %= (num1*num2)
         currentColor = ui.inverseRgbColorString(self.learnPolyrhythmScreen.eventControl["dotColors"][noteIndex])
         if currentColor[1] == 0: #then the color looks like (0, 0, x)
