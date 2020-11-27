@@ -1,6 +1,5 @@
 from cmu_112_graphics import * #cmu 112 graphics taken from the course website
 import AppUI as ui
-import time
 import Synth
 import pyaudio, numpy as np
 
@@ -245,6 +244,7 @@ class MainApp(App):
         return ui.almostEqual(timeToPastRhythmClick, timeToNextRhythmClick)
 
     def handleUserDrumming(self, input):
+        self.learnPolyrhythmScreen.eventControl["selectorSqueezeSize"] = .75
         num1, num2 = self.getPolyrhythm()
         timeToPastClick = self.timeSinceStart - self.timeAtLastNote #at this note, rhythmIndex was the current rhythmIndex - 1
         timeToNextClick = self.timeAtLastNote + self.timePerSubPulse - self.timeSinceStart #at this note, rhythmIndex will be the current rhythmIndex
@@ -303,15 +303,12 @@ class MainApp(App):
 
         colorValue = None
         if time > self.timePerSubPulse/2: time = self.timePerSubPulse/2
-        print(self.timePerSubPulse)
         if self.timePerSubPulse >  0.08: #this value was found through testing 
-            print("slow")
             #in the worst case here the user must tap .125/4 seconds of the beat to hear feedback
             #we convert the time to a color value from 0 to 255, the maximum time is half the sub pulse time
             #multiply by .3 so it can never go completly black
             colorValue = int(255*(1 - .7*((time/(self.timePerSubPulse/2))**3)))
         else:
-            print("fast")
             #the beat is VERY fast so we ease up a bit on the algorithm for computing brightness to allow for more lax feedback
             colorValue = int(255*(1 - .7*((time/(self.timePerSubPulse/2))**5)))
 
