@@ -147,12 +147,21 @@ def getPromptUserScreen(appWidth, appHeight):
     def drawBgColor(canvas, x, y, screen):
         canvas.create_rectangle(x, y, x + appWidth, y + appHeight, fill = "darkgreen")
     drawBgColorObject = ObjectToDraw(0, 0, drawBgColor)
+    
     def animateEntrance(screen):
         moveSpeed = 20
         screen.topLeftX += moveSpeed
         if screen.topLeftX > 0:
             screen.topLeftX = 0
             screen.currentAnimationState = "animateNormalPos"
+
+    def animateUpEntrance(screen):
+        moveSpeed = 20
+        screen.topLeftY -= moveSpeed
+        if screen.topLeftY  <= 0:
+            screen.topLeftY = 0
+            screen.currentAnimationState = "animateNormalPos"
+
     def animateNormalPos(screen):
         pass
 
@@ -261,7 +270,7 @@ def getPromptUserScreen(appWidth, appHeight):
                     "typedInLeftBox":[None, ""],
                     "typedInRightBox":[None, ""],
                     "mouseInsideGoBox":[isMouseInsideGoBox, "gold"]}
-    animationStates = {"entrance":animateEntrance, "animateNormalPos":animateNormalPos, "exitDown":exitDownAnimation}
+    animationStates = {"entrance":animateEntrance, "animateNormalPos":animateNormalPos, "exitDown":exitDownAnimation, "enterUp":animateUpEntrance}
 
     objectsToDraw = [drawBgColorObject, drawPromptTextObject, drawAgainstTextObject, drawTextBoxesAndTextObject, drawGoBoxAndTextObject]
     
@@ -356,7 +365,7 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
                     brightness = getAverageBrightness(screen.eventControl["dotColors"])/255
                     selectorColor = rgbColorString(int(brightness*144), int(brightness*238), int(brightness*144)) #numbers for TKinter's lightgreen
                     newJumpIn = (3*jumpIn/8)*screen.eventControl["selectorSqueezeSize"]
-                    canvas.create_oval(xCoord + newJumpIn, yCoord + newJumpIn, xCoord + gridSize - newJumpIn, yCoord + gridSize - newJumpIn, outline = selectorColor, width = gridSize/20)
+                    canvas.create_oval(xCoord + newJumpIn, yCoord + newJumpIn, xCoord + gridSize - newJumpIn, yCoord + gridSize - newJumpIn, outline = selectorColor, width = gridSize/23)
                 canvas.create_oval(xCoord + jumpIn, yCoord + jumpIn, xCoord + gridSize - jumpIn, yCoord + gridSize - jumpIn,
                 fill = screen.eventControl["dotColors"][num2*row + col], outline = "black")
     drawNoteGridObject = ObjectToDraw(0, 0, drawNoteGrid)
@@ -384,6 +393,48 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
             screen.topLeftY = 0
             screen.currentAnimationState = "animateNormalPos"
     
+
+    def isMouseInsideBackButton(x, y, screen):
+        rightMargin = appWidth/50
+        headPokeOut = appWidth/50
+        insideWidth = appWidth/30
+
+        topMargin = appHeight/27
+        headHeight = appHeight/24
+        tailHeight = appHeight/20
+
+        halfHeadWidth = headPokeOut + insideWidth/2
+
+        if y <= appHeight - topMargin - headHeight: #rectangle case, on bottom edge is still inside!
+            yInBounds = y > appHeight - topMargin - headHeight - tailHeight
+            xInBounds = x > appWidth - rightMargin - headPokeOut - insideWidth and x < appWidth - rightMargin - headPokeOut
+            return yInBounds and xInBounds
+        else: #triangle case
+            if x < appWidth - rightMargin - halfHeadWidth: #bound by the line y =  (tailHeight/halfHeadWidth)(x - (appWidth - rightMargin - halfHeadWidth)) + appHeight - topMargin
+                return y < (tailHeight/halfHeadWidth)*(x - (appWidth - rightMargin - halfHeadWidth)) + appHeight - topMargin
+            else: #bound by a line y =  -(tailHeight/halfHeadWidth)(x - (appWidth - rightMargin - halfHeadWidth)) + appHeight - topMargin
+                return y < -(tailHeight/halfHeadWidth)*(x - (appWidth - rightMargin - halfHeadWidth)) + appHeight - topMargin
+
+
+    def drawBackButton(canvas, x, y, screen):
+        rightMargin = appWidth/50
+        headPokeOut = appWidth/50
+        insideWidth = appWidth/30
+
+        topMargin = appHeight/27
+        headHeight = appHeight/24
+        tailHeight = appHeight/20
+
+        canvas.create_polygon(x + appWidth - rightMargin - headPokeOut - insideWidth, y + appHeight - topMargin - headHeight - tailHeight, 
+                                x + appWidth - rightMargin - headPokeOut, y + appHeight - topMargin - headHeight - tailHeight,
+                                x + appWidth - rightMargin - headPokeOut, y + appHeight - topMargin - headHeight,
+                                x + appWidth - rightMargin, y + appHeight - topMargin - headHeight,
+                                x + appWidth - rightMargin - headPokeOut - insideWidth/2, y + appHeight - topMargin,
+                                x + appWidth - rightMargin - headPokeOut - insideWidth - headPokeOut, y + appHeight - topMargin - headHeight,
+                                x + appWidth - rightMargin - headPokeOut - insideWidth, y + appHeight - topMargin - headHeight,
+                                fill = screen.eventControl["mouseInsideBackButton"][1], outline = "white")
+    
+    drawBackButtonObject = ObjectToDraw(0, 0, drawBackButton)
 
     def drawVolumeBar(canvas, x, y, screen):
         volumeHeight = screen.eventControl["getVolumeHeight"][0]
@@ -429,6 +480,12 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
     def animateNormalPos(screen):
         updateVolumeBarHeight(screen)
         updateSelectorSquezeSize(screen)
+
+    def animateExitUp(screen):
+        moveSpeed = 20
+        screen.topLeftY -= moveSpeed
+        if screen.topLeftY + appHeight < 0:
+            screen.currentAnimationState = "animateNormalPos"
     
     defaultDotColors = [rgbColorString(140, 0, 0)] * (num1*num2)
 
@@ -440,12 +497,12 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
         elif x % num2 == 0:
             defaultDotColors[x] = rgbColorString(0, 0, 76)
 
-    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0], "dotColors": defaultDotColors, "selectorSqueezeSize":1}
+    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0], "dotColors": defaultDotColors, "selectorSqueezeSize":1, "mouseInsideBackButton":[isMouseInsideBackButton,"darkred"]}
     
 
-    animationState = {"enterDown":animateEnterDown, "animateNormalPos":animateNormalPos, "animatePolyrhythm":animatePolyrhythm}
+    animationState = {"enterDown":animateEnterDown, "animateNormalPos":animateNormalPos, "animatePolyrhythm":animatePolyrhythm, "exitUp":animateExitUp}
 
-    drawingObjects = [drawBgColorObject, drawNoteGridObject, drawPlayButtonObject, drawBlackTriangleObject, drawBlackSquareObject, drawTempoTextBoxObject, drawVolumeBarObject]
+    drawingObjects = [drawBgColorObject, drawNoteGridObject, drawPlayButtonObject, drawBlackTriangleObject, drawBlackSquareObject, drawTempoTextBoxObject, drawVolumeBarObject, drawBackButtonObject]
 
 
 
