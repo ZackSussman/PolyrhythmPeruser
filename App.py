@@ -26,6 +26,8 @@ class MainApp(App):
 
         self.hasUserTappedNote = False #tells us whether or not to listen to user input for the current note to be played
         
+        self.justDetectedAMiddlePoint = False #set this to true when we detect a midpoint. This way when we stop decteding it we know when was the FIRST time we stopped detecting it. 
+
         self.initializeAudio()
         self.initializeVolumeBarParameters()
     
@@ -99,9 +101,17 @@ class MainApp(App):
 
                 self.rhythmIndex += 1
             
-            #constantly test this
+            #the way we test for a switchover causes it to be True way too many times so this mechanism ensures we only get a single call
             if self.testForSwitchoverToNewNote():
+                self.justDetectedAMiddlePoint = True
+            elif self.justDetectedAMiddlePoint:
+                print("NOW!")
+                if self.hasUserTappedNote == False: #they completely missed the note!
+                    self.updateNoteColor(self.timePerSubPulse/2, self.getPastRhythmClick())
                 self.hasUserTappedNote = False
+                self.justDetectedAMiddlePoint = False
+
+
 
             self.timeSinceStart += self.timePerBuffer
 
@@ -286,6 +296,7 @@ class MainApp(App):
 
 
     def updateNoteColor(self, time, noteIndex):
+        self.hasUserTappedNote = True
         num1, num2 = self.getPolyrhythm()
         assert(noteIndex % num1 == 0 or noteIndex % num2 == 0)
         time = abs(time)
