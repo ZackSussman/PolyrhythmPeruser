@@ -19,6 +19,22 @@ def inverseRgbColorString(colorString):
     gString = colorString[2:4]
     bString = colorString[4:]
     return int(rString, 16), int(gString, 16), int(bString, 16)
+
+#takes in a list of colors and returns the average brightness
+#this measures how well the user is doing! 
+def getAverageBrightness(colors):
+    values = [inverseRgbColorString(color) for color in colors]
+    n = 0
+    total = 0
+    for color in values:
+        if color[0] == 0: #only consider notes that aren't red (the notes the user is trying to play)
+            if color[1] == 0:
+                total += color[2]
+            else:
+                total += color[1]
+            n += 1
+    assert(n != 0)
+    return total/n
 #---------------------------------------
 
 
@@ -337,13 +353,23 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
                 jumpIn = gridSize*7/10
 
                 if screen.eventControl["currentDotSelector"] == num2*row + col:
-                    newJumpIn = 3*jumpIn/8
-                    canvas.create_oval(xCoord + newJumpIn, yCoord + newJumpIn, xCoord + gridSize - newJumpIn, yCoord + gridSize - newJumpIn, outline = "white" )
+                    brightness = getAverageBrightness(screen.eventControl["dotColors"])/255
+                    selectorColor = rgbColorString(int(brightness*144), int(brightness*238), int(brightness*144)) #numbers for TKinter's lightgreen
+                    newJumpIn = (3*jumpIn/8)*screen.eventControl["selectorSqueezeSize"]
+                    canvas.create_oval(xCoord + newJumpIn, yCoord + newJumpIn, xCoord + gridSize - newJumpIn, yCoord + gridSize - newJumpIn, outline = selectorColor, width = gridSize/20)
                 canvas.create_oval(xCoord + jumpIn, yCoord + jumpIn, xCoord + gridSize - jumpIn, yCoord + gridSize - jumpIn,
                 fill = screen.eventControl["dotColors"][num2*row + col], outline = "black")
     drawNoteGridObject = ObjectToDraw(0, 0, drawNoteGrid)
 
+    def updateSelectorSquezeSize(screen):
+        if screen.eventControl["selectorSqueezeSize"] == 1:
+            return
+        screen.eventControl["selectorSqueezeSize"] += .02
+        if screen.eventControl["selectorSqueezeSize"] >= 1:
+            screen.eventControl["selectorSqueezeSize"] = 1
+
     def animatePolyrhythm(screen):
+        updateSelectorSquezeSize(screen)
         if screen.eventControl["animateStepActive"]:
             screen.eventControl["currentDotSelector"] += 1
             if screen.eventControl["currentDotSelector"] == num1*num2:
@@ -402,18 +428,19 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
 
     def animateNormalPos(screen):
         updateVolumeBarHeight(screen)
-
+        updateSelectorSquezeSize(screen)
+    
     defaultDotColors = [rgbColorString(140, 0, 0)] * (num1*num2)
 
     for x in range(num1*num2):
         if x % num2 == 0 and x % num1 == 0:
-            defaultDotColors[x] = rgbColorString(0, 140, 140)
+            defaultDotColors[x] = rgbColorString(0, 76, 76)
         elif x % num1 == 0:
-            defaultDotColors[x] = rgbColorString(0, 140, 0)
+            defaultDotColors[x] = rgbColorString(0, 76, 0)
         elif x % num2 == 0:
-            defaultDotColors[x] = rgbColorString(0, 0, 140)
+            defaultDotColors[x] = rgbColorString(0, 0, 76)
 
-    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0], "dotColors": defaultDotColors}
+    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0], "dotColors": defaultDotColors, "selectorSqueezeSize":1}
     
 
     animationState = {"enterDown":animateEnterDown, "animateNormalPos":animateNormalPos, "animatePolyrhythm":animatePolyrhythm}
