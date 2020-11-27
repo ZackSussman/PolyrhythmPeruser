@@ -51,8 +51,8 @@ class MainApp(App):
 
         #------------------------------------------ initialize synth
         self.slowSynth = Synth.Synthesizer(520, rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/3)
-        self.fastSynth = Synth.Synthesizer(520*(5/3), rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/3)
-        self.countSynth = Synth.Synthesizer(420*(5/2), rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/15)
+        self.fastSynth = Synth.Synthesizer(520*(3/2), rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/3)
+        self.countSynth = Synth.Synthesizer(520*(6/15), rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/15)
         #------------------------------------------
 
 
@@ -83,7 +83,6 @@ class MainApp(App):
 
 
     def outputAudioStreamCallback(self, inputAudio, frameCount, timeInfo, status):
-        
         if self.learnPolyrhythmScreen in self.currentScreens and self.learnPolyrhythmScreen.currentAnimationState == 'animatePolyrhythm':
             num1, num2 = self.getPolyrhythm()
             if self.timeSinceStart >= self.timeAtLastNote + self.timePerSubPulse:
@@ -118,7 +117,6 @@ class MainApp(App):
         fastSynthData = self.fastSynth.getAudioData()
         countSynthData = self.countSynth.getAudioData()
         data = slowSynthData + fastSynthData + countSynthData
-
         return (data, pyaudio.paContinue)    
         
 
@@ -158,6 +156,10 @@ class MainApp(App):
                 self.learnPolyrhythmScreen.eventControl["isMouseInsidePlayButton"][1] = "limegreen"
             else:
                 self.learnPolyrhythmScreen.eventControl["isMouseInsidePlayButton"][1] = "green"
+            if self.learnPolyrhythmScreen.eventControl["mouseInsideBackButton"][0](event.x, event.y, self.learnPolyrhythmScreen):
+                self.learnPolyrhythmScreen.eventControl["mouseInsideBackButton"][1] = "red"
+            else:
+                self.learnPolyrhythmScreen.eventControl["mouseInsideBackButton"][1] = "darkred"
 
     def mousePressed(self, event):
         if self.titleScreen in self.currentScreens and self.titleScreen.currentAnimationState == "animateNormalPos":
@@ -178,11 +180,19 @@ class MainApp(App):
             if self.promptUserScreen.eventControl["mouseInsideGoBox"][0](event.x, event.y, self.promptUserScreen):
                 if self.promptUserScreen.eventControl["typedInLeftBox"][1] != "" and self.promptUserScreen.eventControl["typedInRightBox"][1] != "":
                     num1, num2 = self.getPolyrhythm()
-                    self.learnPolyrhythmScreen = ui.getLearnPolyrhythmScreen(self.width, self.height, num2, num1)
-                    self.promptUserScreen.currentAnimationState = "exitDown"
-                    self.currentScreens.append(self.learnPolyrhythmScreen)
-                    self.handleTempoChange() #this can also initialize tempo related variables
-
+                    if num1 != 0 and num2 != 0:
+                        self.learnPolyrhythmScreen = ui.getLearnPolyrhythmScreen(self.width, self.height, num2, num1)
+                        self.promptUserScreen.currentAnimationState = "exitDown"
+                        self.currentScreens.append(self.learnPolyrhythmScreen)
+                        self.handleTempoChange() #this can also initialize tempo related variables
+        if self.learnPolyrhythmScreen in self.currentScreens:
+            if self.learnPolyrhythmScreen.eventControl["mouseInsideBackButton"][0](event.x, event.y, self.learnPolyrhythmScreen):
+                self.learnPolyrhythmScreen.currentAnimationState = "exitUp"
+                self.resetPolyrhythmAttributes() #reset everything polyrhythm related to prepare for a new rhythm
+                self.currentScreens.append(self.promptUserScreen)
+                self.promptUserScreen.topLeftY = self.height
+                self.promptUserScreen.currentAnimationState = "enterUp"
+                self.learnPolyrhythmScreen.eventControl["mouseInsideBackButton"][1] = "darkred"
         if self.learnPolyrhythmScreen in self.currentScreens and self.learnPolyrhythmScreen.currentAnimationState in ["animateNormalPos", "animatePolyrhythm"]:
             if self.learnPolyrhythmScreen.eventControl["isMouseInsidePlayButton"][0](event.x, event.y, self.learnPolyrhythmScreen):
                 self.handlePlayPause()
@@ -191,8 +201,17 @@ class MainApp(App):
             else:
                 self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] = "black"
                 self.handleTempoChange()
-                    
-            
+    
+    def resetPolyrhythmAttributes(self):
+        self.timeSinceStart = 0
+        self.rhythmIndex = 0
+        self.timeAtLastNote = 0
+        self.slowSynth.turnNoteOff()
+        self.fastSynth.turnNoteOff()
+        self.countSynth.turnNoteOff()
+        self.hasUserTappedNote = False
+        self.justDetectedAMiddlePoint = False 
+
     def keyPressed(self, event):
         if self.promptUserScreen in self.currentScreens:
             if not event.key.isnumeric() and event.key != "Delete":
@@ -224,7 +243,7 @@ class MainApp(App):
             if self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] != "" and event.key == "Enter" and self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] == "gold":
                 self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] = "black"
                 self.handleTempoChange()
-            if self.learnPolyrhythmScreen.currentAnimationState == "animatePolyrhythm":
+            if self.learnPolyrhythmScreen.currentAnimationState == "animatePolyrhythm" and event.key != "Space" and event.key != "Enter" :
                 self.handleUserDrumming(event.key)
     
     #simply test to see if it is time to reset the state of whether the user tried to press the note
