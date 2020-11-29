@@ -12,13 +12,12 @@ def almostEqual(x, y):
 
 #-------------------------------------
 
-#this was fun to write!
 def inverseRgbColorString(colorString):
     colorString = colorString[1:]
     rString = colorString[:2]
     gString = colorString[2:4]
     bString = colorString[4:]
-    return int(rString, 16), int(gString, 16), int(bString, 16)
+    return int(rString, 16), int(gString, 16), int(bString, 16) #https://stackoverflow.com/questions/209513/convert-hex-string-to-int-in-python
 
 #takes in a list of colors and returns the average brightness
 #this measures how well the user is doing! 
