@@ -3,6 +3,18 @@ import AppUI as ui
 import Synth
 import pyaudio, numpy as np
 
+
+#---------------------------------------------------------------- App.y helper functions
+#I knew this already but here is a good reference for understanding what's going on here http://newt.phys.unsw.edu.au/jw/notes.html#:~:text=In%20electronic%20music%2C%20pitch%20is,the%20pitch%20of%20A4)%3A
+def getFrequencyFromMidiNote(letter, octave):
+    standardA4Frequency = 440
+    #69 is the standard midi number for A4 but I could have done this algorithm for any starting number for any starting octave for any standard frequency
+    octave4Notes = {"A":69, "A#":70, "B":71, "C":72, "C#":73, "D":74, "D#":75, "E":76, "F":77, "F#":78, "G":79, "G#":80}
+    midiNoteNumber = octave4Notes[letter] + 12*(int(octave) - 4)
+    return standardA4Frequency*(2**(((midiNoteNumber - 69))/12))
+#-------------------------------------------------------------------
+
+
 class MainApp(App):
     def appStarted(self):
         self.titleScreen = ui.getTitleScreen(self.width, self.height)
@@ -55,6 +67,7 @@ class MainApp(App):
         self.countSynth = Synth.Synthesizer(520*(6/15), rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/15)
         #------------------------------------------
 
+        #https://people.csail.mit.edu/hubert/pyaudio/docs/ <---- learned to set up pyaudio streams primarily from this site
 
         self.pyAudio = pyaudio.PyAudio()
         #---------------------------------------- setup output stream
@@ -124,7 +137,7 @@ class MainApp(App):
 
     def inputAudioStreamCallback(self, inputAudio, frameCount, timeInfo, status):
         if self.learnPolyrhythmScreen in self.currentScreens:
-            newAudioInData = np.frombuffer(inputAudio, dtype = self.dtype)
+            newAudioInData = np.frombuffer(inputAudio, dtype = self.dtype) #https://www.youtube.com/watch?v=at2NppqIZok&t=542s <--- here is a good start for getting a feel for processing input data with pyaudio
             lastMaxValue = self.learnPolyrhythmScreen.eventControl["getVolumeHeight"][1]
             volumeScale = np.max(newAudioInData)
             if volumeScale - lastMaxValue > self.hitTolerance:
@@ -234,11 +247,14 @@ class MainApp(App):
                 self.preferencesScreen.currentAnimationState = "exitDown"
                 self.currentScreens.append(self.learnPolyrhythmScreen)
                 self.learnPolyrhythmScreen.currentAnimationState = "enterDown"
+                self.resetPolyrhythmAttributes()
+                self.updateSettings()
                 
     
     def resetPolyrhythmAttributes(self):
         self.timeSinceStart = 0
         self.rhythmIndex = 0
+        self.learnPolyrhythmScreen.eventControl["currentDotSelector"] = 0
         self.timeAtLastNote = 0
         self.slowSynth.turnNoteOff()
         self.fastSynth.turnNoteOff()
@@ -370,10 +386,15 @@ class MainApp(App):
             currentColor = (0, colorValue, colorValue)
         self.learnPolyrhythmScreen.eventControl["dotColors"][noteIndex] = ui.rgbColorString(currentColor[0], currentColor[1], currentColor[2])
 
-
-
-
-
+    #called whenever the user returns to self.learnPolyrhythmScreen from self.preferencesScreen to update any state that should be changed from the new settings
+    def updateSettings(self):
+        grid = self.preferencesScreen.eventControl["settings"]
+        slowNoteFrequency = getFrequencyFromMidiNote(grid.rows[2][int(grid.selected[2])], grid.rows[3][int(grid.selected[3])])
+        fastNoteFrequency = getFrequencyFromMidiNote(grid.rows[4][int(grid.selected[4])], grid.rows[5][int(grid.selected[5])])
+        countNoteFrequency = getFrequencyFromMidiNote(grid.rows[6][int(grid.selected[6])], grid.rows[7][int(grid.selected[7])])
+        self.slowSynth.changeFrequency(slowNoteFrequency)
+        self.fastSynth.changeFrequency(fastNoteFrequency)
+        self.countSynth.changeFrequency(countNoteFrequency)
 
     #called whenever the play or paused button (same button) is pressed
     #manage the events of turning off and on the sound and animation
@@ -421,4 +442,7 @@ class MainApp(App):
 
 
 appRunner = MainApp(width = 800, height = 800, mvcCheck = False)
+
+
+
 
