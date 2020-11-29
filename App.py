@@ -8,8 +8,8 @@ class MainApp(App):
         self.titleScreen = ui.getTitleScreen(self.width, self.height)
         self.currentScreens = [self.titleScreen]
         self.promptUserScreen = ui.getPromptUserScreen(self.width, self.height)
+        self.preferencesScreen = ui.getSettingsScreen(self.width, self.height)
         self.learnPolyrhythmScreen = None #initialize to None because we don't know what the polyrhythm is yet
-        
         
         self.polyrhythmStartTime = None #polyrhythm hasn't started yet
         self.numClicksSinceStart = 0 #haven't started yet
@@ -160,6 +160,24 @@ class MainApp(App):
                 self.learnPolyrhythmScreen.eventControl["mouseInsideBackButton"][1] = "red"
             else:
                 self.learnPolyrhythmScreen.eventControl["mouseInsideBackButton"][1] = "darkred"
+            
+            if self.learnPolyrhythmScreen.eventControl["gearRotationAnimation"][2](event.x, event.y, self.learnPolyrhythmScreen):
+                self.learnPolyrhythmScreen.eventControl["gearRotationAnimation"][1] = True
+            else:
+                self.learnPolyrhythmScreen.eventControl["gearRotationAnimation"][1] = False
+        if self.preferencesScreen in self.currentScreens and self.preferencesScreen.currentAnimationState == "animateNormalPos":
+            grid = self.preferencesScreen.eventControl["settings"]
+            result = grid.getSettingForMousePosition(event.x, event.y)
+            if result != None:
+                grid.hovered = [result[0], result[1]]
+            else:
+                grid.hovered = []
+            if self.preferencesScreen.eventControl["applyButtonInfo"][0](event.x, event.y, self.preferencesScreen):
+                self.preferencesScreen.eventControl["applyButtonInfo"][1] = "gold"
+            else:
+                self.preferencesScreen.eventControl["applyButtonInfo"][1] = "white"
+            
+            
 
     def mousePressed(self, event):
         if self.titleScreen in self.currentScreens and self.titleScreen.currentAnimationState == "animateNormalPos":
@@ -201,6 +219,21 @@ class MainApp(App):
             else:
                 self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] = "black"
                 self.handleTempoChange()
+            if self.learnPolyrhythmScreen.eventControl["gearRotationAnimation"][2](event.x, event.y, self.learnPolyrhythmScreen):
+                self.currentScreens.append(self.preferencesScreen)
+                self.learnPolyrhythmScreen.currentAnimationState = "exitUp"
+                self.resetPolyrhythmAttributes()
+        if self.preferencesScreen in self.currentScreens and self.preferencesScreen.currentAnimationState == "animateNormalPos":
+            grid = self.preferencesScreen.eventControl["settings"]
+            result = grid.getSettingForMousePosition(event.x, event.y)
+            if result != None:
+                if grid.selected[result[0]] != None:
+                    grid.selected[result[0]] = result[1] + 1
+            if self.preferencesScreen.eventControl["applyButtonInfo"][0](event.x, event.y, self.preferencesScreen):
+                self.preferencesScreen.currentAnimationState = "exitDown"
+                self.currentScreens.append(self.learnPolyrhythmScreen)
+                self.learnPolyrhythmScreen.currentAnimationState = "enterDown"
+                
     
     def resetPolyrhythmAttributes(self):
         self.timeSinceStart = 0
@@ -267,24 +300,18 @@ class MainApp(App):
         num1, num2 = self.getPolyrhythm()
         timeToPastClick = self.timeSinceStart - self.timeAtLastNote #at this note, rhythmIndex was the current rhythmIndex - 1
         timeToNextClick = self.timeAtLastNote + self.timePerSubPulse - self.timeSinceStart #at this note, rhythmIndex will be the current rhythmIndex
-
-        pastRhythmClick = self.getPastRhythmClick()
-        nextRhythmClick = self.getNextRhythmClick()
-
+        pastRhythmClick = self.getPastRhythmClick() #get the index of the last sub pulse which was played as part of the polyrhythm
+        nextRhythmClick = self.getNextRhythmClick() #get the index of the next sub pulse which was played as part of the polyrhythm
         timeToPastRhythmClick = timeToPastClick + self.timePerSubPulse*(self.rhythmIndex - 1 - pastRhythmClick)
         timeToNextRhythmClick = timeToNextClick + self.timePerSubPulse*(nextRhythmClick - self.rhythmIndex)
-
         timeToUse = None
         indexToUse = None
-
         if timeToNextRhythmClick < timeToPastRhythmClick:
             timeToUse = timeToNextRhythmClick
             indexToUse = nextRhythmClick
         else:
             timeToUse = timeToPastRhythmClick
             indexToUse = pastRhythmClick
-
-
         if not self.hasUserTappedNote:
             self.hasUserTappedNote = True
             self.updateNoteColor(timeToUse, indexToUse)
