@@ -59,7 +59,8 @@ class ObjectToDraw:
 #eventControl is a dictionary of pairs
 #each 'pair' has a function to tell the outcome of an event, and then the next is the information that should change under that occurence
 class Screen:
-    def __init__(self, objectsToDraw, defaultAnimationState = None, animationStates = None, eventControl = None, screenTopLeftX = 0, screenTopLeftY = 0):
+    def __init__(self, name, objectsToDraw, defaultAnimationState = None, animationStates = None, eventControl = None, screenTopLeftX = 0, screenTopLeftY = 0):
+        self.name = name
         self.eventControl = eventControl
         self.objectsToDraw = objectsToDraw
         self.animationStates = animationStates
@@ -68,6 +69,9 @@ class Screen:
 
     def doAnimationStep(self):
         self.animationStates[self.currentAnimationState](self)
+
+    def __repr__(self):
+        return self.name
 
     def drawScreen(self, canvas):
         for objectToDraw in self.objectsToDraw:
@@ -110,8 +114,8 @@ def getTitleScreen(appWidth, appHeight):
     def drawMiniSquare(canvas, x, y, screen):
         if x > appWidth or y > appHeight or x < 0 or y < 0:
             return
-        r = abs(int(255*(x/appWidth)))
-        g = 255 - r
+        g = abs(int(255*(.5 - x/appWidth)))
+        r = abs(int(255 - g/3))
         b = int((255/2)*(1 + math.cos(2*math.pi*y/appHeight)))
         canvas.create_rectangle(x - 14, y - 14, x + 14, y + 14, fill = "black")
         canvas.create_rectangle(x - 10, y - 10, x + 10, y + 10, fill = rgbColorString(r, g, b)) 
@@ -138,7 +142,7 @@ def getTitleScreen(appWidth, appHeight):
         moveSpeed = 20
         screen.topLeftX += moveSpeed
     completeObjectsToDraw = [drawBgColorObject] + drawMiniSquareObjects + [drawTitleObject] + [drawNameObject] + [drawBeginBoxObject] + [drawBeginTextObject]
-    titleScreen = Screen(completeObjectsToDraw, "animateNormalPos", 
+    titleScreen = Screen("Title Screen", completeObjectsToDraw, "animateNormalPos", 
                         {"animateNormalPos":animateNormalPos, "exit":animateExitTitleSlide},
                         {"isMouseInsideBeginBox":[isMouseInsideBeginBox, "gold"]})
     return titleScreen
@@ -276,7 +280,7 @@ def getPromptUserScreen(appWidth, appHeight):
     
     startingAnimationState = "entrance"
 
-    screen = Screen(objectsToDraw, startingAnimationState, animationStates, eventControl, -1*appWidth)
+    screen = Screen("Prompt User Screen", objectsToDraw, startingAnimationState, animationStates, eventControl, -1*appWidth)
     return screen
 
 #num1 and num2 are the two numbers that will create the polyrhythm!
@@ -379,6 +383,7 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
 
     def animatePolyrhythm(screen):
         updateSelectorSquezeSize(screen)
+        animateGearRotation(screen)
         if screen.eventControl["animateStepActive"]:
             screen.eventControl["currentDotSelector"] += 1
             if screen.eventControl["currentDotSelector"] == num1*num2:
@@ -436,6 +441,59 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
     
     drawBackButtonObject = ObjectToDraw(0, 0, drawBackButton)
 
+
+    def animateGearRotation(screen):
+        if screen.eventControl["gearRotationAnimation"][1] and screen.eventControl["gearRotationAnimation"][0] + .1 <= np.pi:
+            screen.eventControl["gearRotationAnimation"][0] += .3
+        if (not screen.eventControl["gearRotationAnimation"][1]) and screen.eventControl["gearRotationAnimation"][0] - .1 >= 0:
+            screen.eventControl["gearRotationAnimation"][0] -= .3
+
+    def isMouseOverSettingsButton(x, y, screen):
+        distanceFromBackButton = appWidth/15
+        rightMargin = appWidth/50 + appWidth/50 + appWidth/30 + distanceFromBackButton
+        outerRadius = appWidth/15
+        topMargin = appHeight/50
+        jumpIn = outerRadius*6/11
+        actualRadius = outerRadius - jumpIn
+        circleCenterX = appWidth - rightMargin - outerRadius
+        circleCenterY = appHeight - topMargin - outerRadius
+        distance = np.sqrt((x - circleCenterX)**2 + (y - circleCenterY)**2)
+        return distance <= actualRadius
+
+
+
+    def drawSettingsButton(canvas, x, y, screen):
+        distanceFromBackButton = appWidth/15
+        rightMargin = appWidth/50 + appWidth/50 + appWidth/30 + distanceFromBackButton
+        outerRadius = appWidth/15
+
+        topMargin = appHeight/50
+
+        jumpIn = outerRadius*6/11
+        nextJumpIn = outerRadius*3/4
+        circleCenterX = x + appWidth - rightMargin - outerRadius
+        circleCenterY = y + appHeight - topMargin - outerRadius
+
+        canvas.create_oval(x + appWidth - rightMargin - 2*outerRadius + jumpIn,y + appHeight - topMargin - 2*outerRadius + jumpIn,
+                           x + appWidth - rightMargin - jumpIn,y + appHeight - topMargin - jumpIn, outline = 'white', width = appWidth/100)
+
+        numSpikes = 6
+        spikeRadius = outerRadius - jumpIn
+        for i in range(numSpikes):
+            angle = i * (2*np.pi/(numSpikes)) + screen.eventControl["gearRotationAnimation"][0]
+            
+            secondaryAngle = (i + .5)*(2*np.pi)/numSpikes - .4*screen.eventControl["gearRotationAnimation"][0]
+            canvas.create_line(circleCenterX + spikeRadius*np.cos(secondaryAngle), circleCenterY - spikeRadius*np.sin(secondaryAngle),
+                                circleCenterX + 2*spikeRadius*np.cos(secondaryAngle), circleCenterY - 2*spikeRadius*np.sin(secondaryAngle), fill=  'black', width = appWidth/100)
+            
+            canvas.create_line(circleCenterX, circleCenterY, 
+                            circleCenterX + spikeRadius*np.cos(angle), circleCenterY - spikeRadius*np.sin(angle), fill = "white", width = appWidth/220)
+            
+        canvas.create_oval(x + appWidth - rightMargin - 2*outerRadius + nextJumpIn,y + appHeight - topMargin - 2*outerRadius + nextJumpIn,
+                           x + appWidth - rightMargin - nextJumpIn,y + appHeight - topMargin - nextJumpIn, fill = 'white', outline = 'black', width = appWidth/240)
+
+    settingsObject = ObjectToDraw(0, 0, drawSettingsButton)
+
     def drawVolumeBar(canvas, x, y, screen):
         volumeHeight = screen.eventControl["getVolumeHeight"][0]
         rectWidth = 40
@@ -480,6 +538,7 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
     def animateNormalPos(screen):
         updateVolumeBarHeight(screen)
         updateSelectorSquezeSize(screen)
+        animateGearRotation(screen)
 
     def animateExitUp(screen):
         moveSpeed = 20
@@ -497,15 +556,183 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
         elif x % num2 == 0:
             defaultDotColors[x] = rgbColorString(0, 0, 76)
 
-    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0], "dotColors": defaultDotColors, "selectorSqueezeSize":1, "mouseInsideBackButton":[isMouseInsideBackButton,"darkred"]}
+    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0], "dotColors": defaultDotColors, "selectorSqueezeSize":1, "mouseInsideBackButton":[isMouseInsideBackButton,"darkred"], "gearRotationAnimation":[0, False, isMouseOverSettingsButton]}
     
 
     animationState = {"enterDown":animateEnterDown, "animateNormalPos":animateNormalPos, "animatePolyrhythm":animatePolyrhythm, "exitUp":animateExitUp}
 
-    drawingObjects = [drawBgColorObject, drawNoteGridObject, drawPlayButtonObject, drawBlackTriangleObject, drawBlackSquareObject, drawTempoTextBoxObject, drawVolumeBarObject, drawBackButtonObject]
+    drawingObjects = [drawBgColorObject, drawNoteGridObject, drawPlayButtonObject, drawBlackTriangleObject, drawBlackSquareObject, drawTempoTextBoxObject, drawVolumeBarObject, drawBackButtonObject, settingsObject]
 
 
 
-    screen = Screen(drawingObjects, "enterDown", animationState, eventControl, 0, -1*appHeight)
+    screen = Screen("Learn Polyrhythm Screen",drawingObjects, "enterDown", animationState, eventControl, 0, -1*appHeight)
     return screen    
 
+
+
+def getSettingsScreen(appWidth, appHeight):
+    
+    def drawBackground(canvas, x, y, screen):
+        canvas.create_rectangle(x, y, x + appWidth, y + appHeight, fill =  rgbColorString(30, 0, 30))
+    bgDrawObject = ObjectToDraw(0, 0, drawBackground)
+
+    def drawApplyButton(canvas, x, y, screen):
+        width = appWidth/4
+        height = appHeight/20
+        upMargin = appHeight/14
+        canvas.create_rectangle(x + appWidth/2 - width/2,y + appHeight - upMargin - height/2,
+                                x + appWidth/2 + width/2,y + appHeight - upMargin + height/2, 
+                                fill = screen.eventControl["applyButtonInfo"][1])
+        canvas.create_text(x + appWidth/2, y + appHeight - upMargin, text = "Done", font = "Arial 22 bold")
+    drawApplyButtonObject = ObjectToDraw(0, 0, drawApplyButton)
+
+    def isMouseOverApplyButton(mouseX, mouseY, screen):
+        width = appWidth/4
+        height = appHeight/20
+        upMargin = appHeight/14
+        return mouseX > appWidth/2 - width/2 and mouseX < appWidth/2 + width/2 and mouseY > appHeight - upMargin - height/2 and mouseY < appHeight - upMargin + height/2
+
+
+    def drawPreferencesTitle(canvas, x, y, screen):
+        upMargin = appHeight/14
+        canvas.create_text(x + appWidth/2, y + upMargin, text = "Preferences", font = "Arial 32 bold", fill = "white")
+    drawPreferencesTitleObject = ObjectToDraw(0, 0, drawPreferencesTitle)    
+    
+    #it's too painful to not write it this way
+    class PreferencesGrid:
+        def __init__(self):
+            self.rows = [] #will be a 2d list
+            #each row in the list represents a different setting and each collumn in that row is a different 'option' for that setting, the actual data it stores are just strings of what each option is
+            self.sideMargin = appWidth/20
+            self.upMargin = appHeight/7
+            self.downMargin = appHeight/7
+
+            #-------------- these are both updated via App.py 
+            self.selected = [] #a 1d list, each entry represents one row of self.rows, and is the index of the one which should be highlighted, (displaying the current option that is enabled)
+            self.hovered = [] #just two numbers, the row and col of the box the user has their mouse over. 
+
+        #here is a tricky method to write
+        #given the mouse position, return the row and index of self.rows of the box the mouse is inside!
+        def getSettingForMousePosition(self, mouseX, mouseY):
+            totalGridHeight = appHeight - self.upMargin - self.downMargin
+            deltaY = totalGridHeight/len(self.rows)
+            totalGridLength = appWidth - 2*self.sideMargin
+            titleWidth = totalGridLength/5
+            if mouseX < self.sideMargin + titleWidth or mouseX > self.sideMargin + totalGridLength:
+                return None
+            rowIndex = int(((mouseY - self.upMargin) // deltaY))
+            if rowIndex < 0 or rowIndex >= len(self.rows): #note in the grid
+                return None
+            deltaX = (totalGridLength - titleWidth)/(len(self.rows[rowIndex]) - 1)
+            if mouseX < self.sideMargin + titleWidth:
+                return (rowIndex, 0)
+            colIndex = (mouseX - self.sideMargin - titleWidth) // deltaX
+            return (rowIndex, colIndex)
+
+
+        #a row consits of a text describing what the options change, and then the list of the text of the various options
+        def addRow(self, descriptionText, options, currentSelected = None):
+            assert(currentSelected == None or type(currentSelected) == int)
+            self.rows.append([descriptionText] + options)
+            if currentSelected == None:
+                self.selected.append(currentSelected)
+            else:
+                self.selected.append(currentSelected + 1) #+1 because the index is relative to our new array which has the name appended at the beginning
+
+        def drawGrid(self, canvas, xOffset, yOffset):
+            if len(self.rows) == 0:
+                return
+            y = yOffset + self.upMargin
+            totalGridHeight = appHeight - self.upMargin - self.downMargin
+            deltaY = totalGridHeight/len(self.rows)
+            totalGridLength = appWidth - 2*self.sideMargin
+            titleWidth = totalGridLength/5
+            saveY = y
+
+            selectedIndex = 0
+            for row in self.rows:
+                if len(row) == 0:
+                    continue
+                drewTitle = False
+                deltaX = (totalGridLength - titleWidth)/(len(row)-1)
+                x = xOffset + self.sideMargin
+                entryIndex = 0
+                for entry in row:
+                    fillColor = "black"
+                    textColor = "white"
+                    outlineColor = "white"
+                    if self.selected[selectedIndex] == entryIndex:
+                        fillColor = "gold"
+                        textColor = "black"
+                    if drewTitle:
+                        canvas.create_rectangle(x, y, x + deltaX, y + deltaY, outline = outlineColor, fill = fillColor)
+                        canvas.create_text(x + deltaX/2, y + deltaY/2, text = entry, fill = textColor)
+                        x += deltaX
+                    else:
+                        canvas.create_rectangle(x, y, x + titleWidth, y + deltaY, outline = outlineColor, fill = fillColor)
+                        canvas.create_text(x + titleWidth/2, y + deltaY/2, text = entry, fill = textColor)
+                        x += titleWidth
+                        drewTitle = True
+                    entryIndex += 1
+                y += deltaY
+                selectedIndex += 1
+
+
+            #line to divide the options from the titles of the options
+            canvas.create_line(xOffset + self.sideMargin + titleWidth, saveY, 
+                                xOffset + self.sideMargin + titleWidth, saveY + totalGridHeight, fill = "white", width = appHeight/150)
+
+            if len(self.hovered) > 1 and (self.selected[self.hovered[0]] == None or self.selected[self.hovered[0]] - 1 != self.hovered[1]): #the -1 is confusing but the reason it's there is because selected indecies are relative to the title, but hovered indecies are relative to the first non-title. yes there are also other confusing things about this if statement my b.
+                deltaX = (totalGridLength - titleWidth)/(len(self.rows[self.hovered[0]]) - 1)
+                deltaY = totalGridHeight/len(self.rows)
+                x = self.hovered[1]*deltaX + self.sideMargin + titleWidth
+                y = self.hovered[0]*deltaY + self.upMargin
+                canvas.create_rectangle(x, y, x + deltaX, y + deltaY, outline = "gold")
+
+        
+    grid = PreferencesGrid()
+    buttons = ["t", "n"]
+    tempoFollowMode = ["On", "Off"]
+    slowNotePitch = ["A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"]
+    slowNoteOctave = ["1", "2", "3", "4", "5", "6", "7", "8"]
+    fastNotePitch = ["A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"]
+    fastNoteOctave = ["1", "2", "3", "4", "5", "6", "7", "8"]
+    tempoNotePitch = ["A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"]
+    tempoNoteOctave = ["1", "2", "3", "4", "5", "6", "7", "8"]
+    grid.addRow("controller options", buttons)
+    grid.addRow("tempo follow mode", tempoFollowMode, 1)
+    grid.addRow("slow note pitch", slowNotePitch, 3)
+    grid.addRow("slow note octave", slowNoteOctave, 5)
+    grid.addRow("fast note pitch", fastNotePitch, 4)
+    grid.addRow("fast note octave", fastNoteOctave, 6)
+    grid.addRow("tempo note pitch", tempoNotePitch, 3)
+    grid.addRow("tempo note octave", tempoNoteOctave, 0)
+
+    def drawPreferencesGrid(canvas, x, y, screen):
+        grid.drawGrid(canvas, x, y)
+    drawPreferencesGridObject = ObjectToDraw(0, 0, drawPreferencesGrid)
+
+
+    def animateEnterDown(screen):
+        moveSpeed = 20
+        screen.topLeftY -= moveSpeed
+        if screen.topLeftY <= 0:
+            screen.topLeftY = 0
+            screen.currentAnimationState = "animateNormalPos"
+
+    def animateExitDown(screen):
+        moveSpeed = 20
+        screen.topLeftY += moveSpeed
+        if screen.topLeftY >= appHeight:
+            screen.currentAnimationState = "animateNormalPos"
+    
+    def animateNormalPos(screen):
+        pass
+
+    animationState = {"enterDown":animateEnterDown, "animateNormalPos":animateNormalPos, "exitDown":animateExitDown}
+
+    eventControl = {"settings":grid, "applyButtonInfo":[isMouseOverApplyButton, "white"]}
+
+    screen = Screen("Settings Screen",[bgDrawObject, drawApplyButtonObject, drawPreferencesTitleObject, drawPreferencesGridObject], "enterDown", animationState, eventControl, 0, appHeight)
+
+    return screen
