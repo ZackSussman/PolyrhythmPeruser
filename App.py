@@ -221,6 +221,7 @@ class MainApp(App):
                 self.handleTempoChange()
             if self.learnPolyrhythmScreen.eventControl["gearRotationAnimation"][2](event.x, event.y, self.learnPolyrhythmScreen):
                 self.currentScreens.append(self.preferencesScreen)
+                self.preferencesScreen.currentAnimationState = "enterDown"
                 self.learnPolyrhythmScreen.currentAnimationState = "exitUp"
                 self.resetPolyrhythmAttributes()
         if self.preferencesScreen in self.currentScreens and self.preferencesScreen.currentAnimationState == "animateNormalPos":
