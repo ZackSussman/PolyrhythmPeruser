@@ -605,6 +605,7 @@ def getSettingsScreen(appWidth, appHeight):
             self.sideMargin = appWidth/20
             self.upMargin = appHeight/7
             self.downMargin = appHeight/7
+            self.userInputRows = [] #tells the grid which rows the user interacts with by clicking and then typing inside, rather than having the row display a list of options
 
             #-------------- these are both updated via App.py 
             self.selected = [] #a 1d list, each entry represents one row of self.rows, and is the index of the one which should be highlighted, (displaying the current option that is enabled)
@@ -633,12 +634,13 @@ def getSettingsScreen(appWidth, appHeight):
         def addRow(self, descriptionText, options, currentSelected = None):
             assert(currentSelected == None or type(currentSelected) == int)
             self.rows.append([descriptionText] + options)
-            if currentSelected == None:
+            if currentSelected == None: #currentSelected is None upon initialization of a row if and only if that row is a user input row
                 self.selected.append(currentSelected)
+                self.userInputRows.append(len(self.rows) - 1)
             else:
                 self.selected.append(currentSelected + 1) #+1 because the index is relative to our new array which has the name appended at the beginning
 
-        def drawGrid(self, canvas, xOffset, yOffset):
+        def drawGrid(self, canvas, xOffset, yOffset, screen):
             if len(self.rows) == 0:
                 return
             y = yOffset + self.upMargin
@@ -663,6 +665,9 @@ def getSettingsScreen(appWidth, appHeight):
                     if self.selected[selectedIndex] == entryIndex:
                         fillColor = "gold"
                         textColor = "black"
+                    userInputData = screen.eventControl["justClickedInUserInput"]
+                    if userInputData != None and userInputData[0] == selectedIndex and userInputData[1] == entryIndex - 1:
+                        fillColor = "blue"
                     if drewTitle:
                         canvas.create_rectangle(x, y, x + deltaX, y + deltaY, outline = outlineColor, fill = fillColor)
                         canvas.create_text(x + deltaX/2, y + deltaY/2, text = entry, fill = textColor)
@@ -681,7 +686,7 @@ def getSettingsScreen(appWidth, appHeight):
             canvas.create_line(xOffset + self.sideMargin + titleWidth, saveY, 
                                 xOffset + self.sideMargin + titleWidth, saveY + totalGridHeight, fill = "white", width = appHeight/150)
 
-            if len(self.hovered) > 1 and (self.selected[self.hovered[0]] == None or self.selected[self.hovered[0]] - 1 != self.hovered[1]): #the -1 is confusing but the reason it's there is because selected indecies are relative to the title, but hovered indecies are relative to the first non-title. yes there are also other confusing things about this if statement my b.
+            if screen.currentAnimationState == "animateNormalPos" and len(self.hovered) > 1 and (self.selected[self.hovered[0]] == None or self.selected[self.hovered[0]] - 1 != self.hovered[1]): #the -1 is confusing but the reason it's there is because selected indecies are relative to the title, but hovered indecies are relative to the first non-title. yes there are also other confusing things about this if statement my b.
                 deltaX = (totalGridLength - titleWidth)/(len(self.rows[self.hovered[0]]) - 1)
                 deltaY = totalGridHeight/len(self.rows)
                 x = self.hovered[1]*deltaX + self.sideMargin + titleWidth
@@ -708,7 +713,7 @@ def getSettingsScreen(appWidth, appHeight):
     grid.addRow("tempo note octave", tempoNoteOctave, 0)
 
     def drawPreferencesGrid(canvas, x, y, screen):
-        grid.drawGrid(canvas, x, y)
+        grid.drawGrid(canvas, x, y, screen)
     drawPreferencesGridObject = ObjectToDraw(0, 0, drawPreferencesGrid)
 
 
@@ -730,7 +735,7 @@ def getSettingsScreen(appWidth, appHeight):
 
     animationState = {"enterDown":animateEnterDown, "animateNormalPos":animateNormalPos, "exitDown":animateExitDown}
 
-    eventControl = {"settings":grid, "applyButtonInfo":[isMouseOverApplyButton, "white"]}
+    eventControl = {"settings":grid, "applyButtonInfo":[isMouseOverApplyButton, "white"], "justClickedInUserInput":None} #this is None if no click, but is the (row, col) of the controller option if it was clicked 
 
     screen = Screen("Settings Screen",[bgDrawObject, drawApplyButtonObject, drawPreferencesTitleObject, drawPreferencesGridObject], "enterDown", animationState, eventControl, 0, appHeight)
 
