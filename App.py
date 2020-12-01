@@ -12,6 +12,7 @@ def getFrequencyFromMidiNote(letter, octave):
     octave4Notes = {"A":69, "A#":70, "B":71, "C":72, "C#":73, "D":74, "D#":75, "E":76, "F":77, "F#":78, "G":79, "G#":80}
     midiNoteNumber = octave4Notes[letter] + 12*(int(octave) - 4)
     return standardA4Frequency*(2**(((midiNoteNumber - 69))/12))
+
 #-------------------------------------------------------------------
 
 
@@ -190,7 +191,6 @@ class MainApp(App):
             else:
                 self.preferencesScreen.eventControl["applyButtonInfo"][1] = "white"
             
-            
 
     def mousePressed(self, event):
         if self.titleScreen in self.currentScreens and self.titleScreen.currentAnimationState == "animateNormalPos":
@@ -243,6 +243,10 @@ class MainApp(App):
             if result != None:
                 if grid.selected[result[0]] != None:
                     grid.selected[result[0]] = result[1] + 1
+            if result != None and result[0] in grid.userInputRows:
+                self.preferencesScreen.eventControl["justClickedInUserInput"] = [result[0], result[1]]
+            else:
+                self.preferencesScreen.eventControl["justClickedInUserInput"] = None
             if self.preferencesScreen.eventControl["applyButtonInfo"][0](event.x, event.y, self.preferencesScreen):
                 self.preferencesScreen.currentAnimationState = "exitDown"
                 self.currentScreens.append(self.learnPolyrhythmScreen)
@@ -263,38 +267,46 @@ class MainApp(App):
         self.justDetectedAMiddlePoint = False 
 
     def keyPressed(self, event):
-        if self.promptUserScreen in self.currentScreens:
-            if not event.key.isnumeric() and event.key != "Delete":
+        if event.key.isalpha(): 
+            event.key = event.key.lower() #don't want to deal with case
+        if self.promptUserScreen in self.currentScreens and self.promptUserScreen.currentAnimationState == "animateNormalPos":
+            if not event.key.isnumeric() and event.key != "delete":
                 return
             if self.promptUserScreen.eventControl["mouseClickedInLeftBox"][1] == "gold":
-                if event.key == "Delete":
+                if event.key == "delete":
                     self.promptUserScreen.eventControl["typedInLeftBox"][1] = self.promptUserScreen.eventControl["typedInLeftBox"][1][:-1]
                     return
                 if len(self.promptUserScreen.eventControl["typedInLeftBox"][1]) < 5:
                     self.promptUserScreen.eventControl["typedInLeftBox"][1] += event.key
             elif self.promptUserScreen.eventControl["mouseClickedInRightBox"][1] == "gold":
-                if event.key == "Delete":
+                if event.key == "delete":
                     self.promptUserScreen.eventControl["typedInRightBox"][1] = self.promptUserScreen.eventControl["typedInRightBox"][1][:-1]
                     return
                 if len(self.promptUserScreen.eventControl["typedInRightBox"][1]) < 5:
                     self.promptUserScreen.eventControl["typedInRightBox"][1] += event.key
-        if self.learnPolyrhythmScreen in self.currentScreens:
-            if not event.key.isnumeric() and event.key != "Delete" and event.key != "Space" and event.key != 'n' and event.key != 't' and event.key != 'Enter':
+        elif self.learnPolyrhythmScreen in self.currentScreens and self.learnPolyrhythmScreen.currentAnimationState in ["animateNormalPos", "animatePolyrhythm"]:
+            if not event.key.isnumeric() and event.key != "delete" and event.key != "space" and event.key not in  [self.preferencesScreen.eventControl["settings"].rows[0][1], self.preferencesScreen.eventControl["settings"].rows[0][2]]  and event.key != 'enter':
                 return
-            if self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] == "gold" and event.key != "Space" and event.key != "Enter":
-                if event.key == "Delete":
+            if self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] == "gold" and event.key != "space" and event.key != "enter":
+                if event.key == "delete":
                     self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] = self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1][:-1]
                     return
                 if len(self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1]) < 5:
                     self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] += event.key
-            elif event.key == "Space":
+            elif event.key == "space":
                 if self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] != "gold" and self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] != "":
                     self.handlePlayPause()
-            if self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] != "" and event.key == "Enter" and self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] == "gold":
+            if self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] != "" and event.key == "enter" and self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] == "gold":
                 self.learnPolyrhythmScreen.eventControl["mouseInsideTempoBox"][1] = "black"
                 self.handleTempoChange()
-            if self.learnPolyrhythmScreen.currentAnimationState == "animatePolyrhythm" and event.key != "Space" and event.key != "Enter" :
+            if self.learnPolyrhythmScreen.currentAnimationState == "animatePolyrhythm" and event.key != "space":
                 self.handleUserDrumming(event.key)
+        if self.preferencesScreen in self.currentScreens and self.preferencesScreen.currentAnimationState == "animateNormalPos":
+            if event.key != "space" and not event.key.isnumeric():
+                grid = self.preferencesScreen.eventControl["settings"]
+                clickData = self.preferencesScreen.eventControl["justClickedInUserInput"]
+                if clickData != None:
+                    grid.rows[int(clickData[0])][int(clickData[1] + 1)] = event.key.lower()
     
     #simply test to see if it is time to reset the state of whether the user tried to press the note
     def testForSwitchoverToNewNote(self):
@@ -369,7 +381,7 @@ class MainApp(App):
         if self.timePerSubPulse >  0.08: #this value was found through testing 
             #in the worst case here the user must tap .125/4 seconds of the beat to hear feedback
             #we convert the time to a color value from 0 to 255, the maximum time is half the sub pulse time
-            #multiply by .3 so it can never go completly black
+            #multiply by .7 so it can never go completly black
             colorValue = int(255*(1 - .7*((time/(self.timePerSubPulse/2))**3)))
         else:
             #the beat is VERY fast so we ease up a bit on the algorithm for computing brightness to allow for more lax feedback
@@ -425,10 +437,12 @@ class MainApp(App):
             #this is how we find the miniClick time
             self.timePerSubPulse = timePerSlowNote/num2
 
+            assert(self.timePerSubPulse > self.timePerBuffer) #if this isn't true we will have all kinds of problems
+
     #---------------------------------------------------------------------------
 
 
-    #get the current polyrhythm
+    #get the current polyrhythm, I probably should have made num1 and num2 avaiable to everyone in the app class so I don't have to call this function *everywhere* but it's okay
     def getPolyrhythm(self):
         num1 = int(self.promptUserScreen.eventControl["typedInRightBox"][1])
         num2 = int(self.promptUserScreen.eventControl["typedInLeftBox"][1])
