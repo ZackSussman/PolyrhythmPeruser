@@ -39,9 +39,15 @@ class MainApp(App):
         self.hasUserTappedNote = False #tells us whether or not to listen to user input for the current note to be played
         
         self.justDetectedAMiddlePoint = False #set this to true when we detect a midpoint. This way when we stop decteding it we know when was the FIRST time we stopped detecting it. 
+        self.engageDecreaseTempo = False
+        self.engageIncreaseTempo = False
+        self.rhythmIndexSinceLastActivatedTempoChange = 0
+        #--------------------------
+
 
         self.initializeAudio()
         self.initializeVolumeBarParameters()
+
     
     def initializeVolumeBarParameters(self):
         self.faderSpeed = .9
@@ -101,18 +107,28 @@ class MainApp(App):
             num1, num2 = self.getPolyrhythm()
             if self.timeSinceStart >= self.timeAtLastNote + self.timePerSubPulse:
                 self.timeAtLastNote = self.timeSinceStart
-               
                 if self.rhythmIndex != 0: #if we do this from the start the dot will always be one move ahead
                     self.learnPolyrhythmScreen.eventControl["animateStepActive"] = True
-                
                 self.countSynth.createHit()
+                if self.engageIncreaseTempo:
+                    self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] = str(int(self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1]) + 1)
+                    if self.rhythmIndex >= 10 + self.rhythmIndexSinceLastActivatedTempoChange: # only increase by 10 bpm at a time
+                        self.engageIncreaseTempo = False
+                        self.rhythmIndexSinceLastActivatedTempoChange = self.rhythmIndex
+                    self.handleTempoChange()
+                elif self.engageDecreaseTempo:
+                    self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] = str(int(self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1]) - 1)
+                    if self.rhythmIndex >= 10 + self.rhythmIndexSinceLastActivatedTempoChange: #so that we only decrease by 10 bpm at a time
+                        self.engageDecreaseTempo = False
+                        self.rhythmIndexSinceLastActivatedTempoChange = self.rhythmIndex
+                    self.handleTempoChange()
                 if self.rhythmIndex % num2 == 0:
                     self.fastSynth.createHit()
                 if self.rhythmIndex % num1 == 0:
                     self.slowSynth.createHit()
-
                 self.rhythmIndex += 1
-            
+            if self.preferencesScreen.eventControl["settings"].selected[1] == 1.0:
+                self.updateTempo()
             #the way we test for a switchover causes it to be True way too many times so this mechanism ensures we only get a single call
             if self.testForSwitchoverToNewNote():
                 self.justDetectedAMiddlePoint = True
@@ -121,17 +137,12 @@ class MainApp(App):
                     self.updateNoteColor(self.timePerSubPulse, self.getPastRhythmClick())
                 self.hasUserTappedNote = False
                 self.justDetectedAMiddlePoint = False
-
-
-
             self.timeSinceStart += self.timePerBuffer
-
-
         slowSynthData = self.slowSynth.getAudioData()
         fastSynthData = self.fastSynth.getAudioData()
         countSynthData = self.countSynth.getAudioData()
         data = slowSynthData + fastSynthData + countSynthData
-        return (data, pyaudio.paContinue)    
+        return (data, pyaudio.paContinue)
         
 
     
@@ -216,6 +227,7 @@ class MainApp(App):
                         self.promptUserScreen.currentAnimationState = "exitDown"
                         self.currentScreens.append(self.learnPolyrhythmScreen)
                         self.handleTempoChange() #this can also initialize tempo related variables
+                        self.updateSettings()
         if self.learnPolyrhythmScreen in self.currentScreens:
             if self.learnPolyrhythmScreen.eventControl["mouseInsideBackButton"][0](event.x, event.y, self.learnPolyrhythmScreen):
                 self.learnPolyrhythmScreen.currentAnimationState = "exitUp"
@@ -265,6 +277,7 @@ class MainApp(App):
         self.countSynth.turnNoteOff()
         self.hasUserTappedNote = False
         self.justDetectedAMiddlePoint = False 
+        self.rhythmIndexSinceLastActivatedTempoChange = 0
 
     def keyPressed(self, event):
         if event.key.isalpha(): 
@@ -324,6 +337,33 @@ class MainApp(App):
 
         return ui.almostEqual(timeToPastRhythmClick, timeToNextRhythmClick)
 
+
+    #here is our algorithm for automating tempo changes
+    #make the tempo faster if the user is doing pretty much perfect for an extended period of time
+    #make the tempo slower if the user is struggling for an extended period of time
+    #keep the tempo the same if the user is changing how well they are doing
+    #how do we know how much the user is changing how well they are doing? Compute change in average brightness of a change in time
+    #What is the change in time we use for this computation? Via testing, I found x to be the most effective value
+    def updateTempo(self):
+        num1, num2 = self.getPolyrhythm()
+  
+        accuracy = ui.getAverageBrightness(self.learnPolyrhythmScreen.eventControl["dotColors"])/255
+
+        stationaryTempo = not self.engageIncreaseTempo and not self.engageDecreaseTempo
+
+        #we want to give 10 seconds in between tempo changes to correct
+        numNotesAhead = int(10/self.timePerSubPulse)
+
+        sufficientlyPastLastTempoDeactivation = self.rhythmIndex >= numNotesAhead + self.rhythmIndexSinceLastActivatedTempoChange
+        if accuracy >= .8 and stationaryTempo and sufficientlyPastLastTempoDeactivation: #not doing that well
+            self.engageIncreaseTempo = True
+            self.rhythmIndexSinceLastActivatedTempoChange = self.rhythmIndex
+        elif accuracy <= .6 and stationaryTempo and sufficientlyPastLastTempoDeactivation: #doing well
+            self.engageDecreaseTempo = True
+            self.rhythmIndexSinceLastActivatedTempoChange = self.rhythmIndex
+        
+
+
     def handleUserDrumming(self, input):
         self.learnPolyrhythmScreen.eventControl["selectorSqueezeSize"] = .75
         num1, num2 = self.getPolyrhythm()
@@ -344,6 +384,8 @@ class MainApp(App):
         if not self.hasUserTappedNote:
             self.hasUserTappedNote = True
             self.updateNoteColor(timeToUse, indexToUse)
+        
+        
 
 
 
