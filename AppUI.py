@@ -383,11 +383,6 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
     def animatePolyrhythm(screen):
         updateSelectorSquezeSize(screen)
         animateGearRotation(screen)
-        if screen.eventControl["animateStepActive"]:
-            screen.eventControl["currentDotSelector"] += 1
-            if screen.eventControl["currentDotSelector"] == num1*num2:
-                screen.eventControl["currentDotSelector"] = 0
-            screen.eventControl["animateStepActive"] = False
         updateVolumeBarHeight(screen)
 
     def animateEnterDown(screen):
@@ -545,6 +540,29 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
         if screen.topLeftY + appHeight < 0:
             screen.currentAnimationState = "animateNormalPos"
     
+    def drawStreakCount(canvas, x, y, screen):
+        if screen.eventControl["drawStreaks"]:
+            upMargin = appHeight/20
+            canvas.create_text(x + appWidth/2, y +upMargin, text = "streak: " + str(screen.eventControl["streak"]) + "  |  best streak: " + str(screen.eventControl["bestStreak"]), fill = "white", font = "Arial 22")
+    drawStreakCountObject = ObjectToDraw(0, 0, drawStreakCount)
+
+
+    def drawTapTempoBox(canvas, x, y, screen):
+        leftMargin = appWidth/30
+        upMargin = appHeight/25
+        boxSideLength = appWidth/20
+        canvas.create_text(x + leftMargin + boxSideLength/2 , y + upMargin/2, text = "Tap Tempo", fill = "white", font = "Arial 16")
+        canvas.create_rectangle(x + leftMargin, y + upMargin, x + leftMargin + boxSideLength, y + upMargin + boxSideLength,
+                                fill = screen.eventControl["isMouseInsideTapTempoBox"][1], outline = "black")
+    drawTapTempoObject = ObjectToDraw(0, 0, drawTapTempoBox)
+
+    def isMouseInsideTapTempoBox(x, y, screen):
+        leftMargin = appWidth/30
+        upMargin = appHeight/25
+        boxSideLength = appWidth/20
+        return x > leftMargin and y > upMargin and x < leftMargin + boxSideLength and y < upMargin + boxSideLength
+
+
     defaultDotColors = [rgbColorString(140, 0, 0)] * (num1*num2)
 
     for x in range(num1*num2):
@@ -555,12 +573,12 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
         elif x % num2 == 0:
             defaultDotColors[x] = rgbColorString(0, 0, 76)
 
-    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0], "dotColors": defaultDotColors, "selectorSqueezeSize":1, "mouseInsideBackButton":[isMouseInsideBackButton,"darkred"], "gearRotationAnimation":[0, False, isMouseOverSettingsButton]}
+    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0], "dotColors": defaultDotColors, "selectorSqueezeSize":1, "mouseInsideBackButton":[isMouseInsideBackButton,"darkred"], "gearRotationAnimation":[0, False, isMouseOverSettingsButton], "streak":0, "bestStreak":0, "drawStreaks":False, "isMouseInsideTapTempoBox":[isMouseInsideTapTempoBox, "yellow"]}
     
 
     animationState = {"enterDown":animateEnterDown, "animateNormalPos":animateNormalPos, "animatePolyrhythm":animatePolyrhythm, "exitUp":animateExitUp}
 
-    drawingObjects = [drawBgColorObject, drawNoteGridObject, drawPlayButtonObject, drawBlackTriangleObject, drawBlackSquareObject, drawTempoTextBoxObject, drawVolumeBarObject, drawBackButtonObject, settingsObject]
+    drawingObjects = [drawBgColorObject, drawNoteGridObject, drawPlayButtonObject, drawBlackTriangleObject, drawBlackSquareObject, drawTempoTextBoxObject, drawVolumeBarObject, drawBackButtonObject, settingsObject, drawStreakCountObject, drawTapTempoObject]
 
 
 
@@ -697,6 +715,7 @@ def getSettingsScreen(appWidth, appHeight):
     grid = PreferencesGrid()
     buttons = ["t", "n"]
     tempoFollowMode = ["On", "Off"]
+    enableStreaks = ["On", "Off"]
     slowNotePitch = ["A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"]
     slowNoteOctave = ["1", "2", "3", "4", "5", "6", "7", "8"]
     fastNotePitch = ["A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"]
@@ -705,6 +724,7 @@ def getSettingsScreen(appWidth, appHeight):
     tempoNoteOctave = ["1", "2", "3", "4", "5", "6", "7", "8"]
     grid.addRow("controller options", buttons)
     grid.addRow("tempo follow mode", tempoFollowMode, 1)
+    grid.addRow("enable streaks", enableStreaks, 2)
     grid.addRow("slow note pitch", slowNotePitch, 2)
     grid.addRow("slow note octave", slowNoteOctave, 4)
     grid.addRow("fast note pitch", fastNotePitch, 11)
