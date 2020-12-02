@@ -705,12 +705,12 @@ def getSettingsScreen(appWidth, appHeight):
     tempoNoteOctave = ["1", "2", "3", "4", "5", "6", "7", "8"]
     grid.addRow("controller options", buttons)
     grid.addRow("tempo follow mode", tempoFollowMode, 1)
-    grid.addRow("slow note pitch", slowNotePitch, 3)
-    grid.addRow("slow note octave", slowNoteOctave, 5)
-    grid.addRow("fast note pitch", fastNotePitch, 4)
-    grid.addRow("fast note octave", fastNoteOctave, 6)
+    grid.addRow("slow note pitch", slowNotePitch, 2)
+    grid.addRow("slow note octave", slowNoteOctave, 4)
+    grid.addRow("fast note pitch", fastNotePitch, 11)
+    grid.addRow("fast note octave", fastNoteOctave, 4)
     grid.addRow("tempo note pitch", tempoNotePitch, 3)
-    grid.addRow("tempo note octave", tempoNoteOctave, 0)
+    grid.addRow("tempo note octave", tempoNoteOctave, 4)
 
     def drawPreferencesGrid(canvas, x, y, screen):
         grid.drawGrid(canvas, x, y, screen)
