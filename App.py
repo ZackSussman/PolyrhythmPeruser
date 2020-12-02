@@ -42,8 +42,20 @@ class MainApp(App):
         self.engageDecreaseTempo = False
         self.engageIncreaseTempo = False
         self.rhythmIndexSinceLastActivatedTempoChange = 0
-        #--------------------------
+        #--------------------------------------------
 
+        #-------------------------- for streaks
+        self.madeMistakeSinceThisCycle = False
+        #---------------------------
+
+        #------------------ for tap tempo
+        self.tapTimes = []
+        self.tapTempoTimer = 0
+        #-------------------
+
+        self.tempo = None #initialize to None here
+        #store this as the actual tempo variable...this variable can be a float so that we can have more precision with our tempos
+        #the disiplayed tempo is just the rounded int of this
 
         self.initializeAudio()
         self.initializeVolumeBarParameters()
@@ -106,27 +118,7 @@ class MainApp(App):
         if self.learnPolyrhythmScreen in self.currentScreens and self.learnPolyrhythmScreen.currentAnimationState == 'animatePolyrhythm':
             num1, num2 = self.getPolyrhythm()
             if self.timeSinceStart >= self.timeAtLastNote + self.timePerSubPulse:
-                self.timeAtLastNote = self.timeSinceStart
-                if self.rhythmIndex != 0: #if we do this from the start the dot will always be one move ahead
-                    self.learnPolyrhythmScreen.eventControl["animateStepActive"] = True
-                self.countSynth.createHit()
-                if self.engageIncreaseTempo:
-                    self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] = str(int(self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1]) + 1)
-                    if self.rhythmIndex >= 10 + self.rhythmIndexSinceLastActivatedTempoChange: # only increase by 10 bpm at a time
-                        self.engageIncreaseTempo = False
-                        self.rhythmIndexSinceLastActivatedTempoChange = self.rhythmIndex
-                    self.handleTempoChange()
-                elif self.engageDecreaseTempo:
-                    self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] = str(int(self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1]) - 1)
-                    if self.rhythmIndex >= 10 + self.rhythmIndexSinceLastActivatedTempoChange: #so that we only decrease by 10 bpm at a time
-                        self.engageDecreaseTempo = False
-                        self.rhythmIndexSinceLastActivatedTempoChange = self.rhythmIndex
-                    self.handleTempoChange()
-                if self.rhythmIndex % num2 == 0:
-                    self.fastSynth.createHit()
-                if self.rhythmIndex % num1 == 0:
-                    self.slowSynth.createHit()
-                self.rhythmIndex += 1
+                self.handleEventsPerSubPulse(num1, num2)
             if self.preferencesScreen.eventControl["settings"].selected[1] == 1.0:
                 self.updateTempo()
             #the way we test for a switchover causes it to be True way too many times so this mechanism ensures we only get a single call
@@ -138,14 +130,60 @@ class MainApp(App):
                 self.hasUserTappedNote = False
                 self.justDetectedAMiddlePoint = False
             self.timeSinceStart += self.timePerBuffer
+        if self.tapTimes == []:
+            self.tapTempoTimer = 0
+        else:
+            self.tapTempoTimer += self.timePerBuffer
         slowSynthData = self.slowSynth.getAudioData()
         fastSynthData = self.fastSynth.getAudioData()
         countSynthData = self.countSynth.getAudioData()
         data = slowSynthData + fastSynthData + countSynthData
         return (data, pyaudio.paContinue)
         
+    #there are a lot of things I need to do every sub pulse so organizing it this way just makes it cleaner
+    def handleEventsPerSubPulse(self, num1, num2):
+        self.timeAtLastNote = self.timeSinceStart
+        if self.rhythmIndex != 0 and self.learnPolyrhythmScreen.currentAnimationState == "animatePolyrhythm": #if we do this from the start the dot will always be one move ahead
+            self.learnPolyrhythmScreen.eventControl["currentDotSelector"] += 1
+            if self.learnPolyrhythmScreen.eventControl["currentDotSelector"] == num1*num2:
+                self.learnPolyrhythmScreen.eventControl["currentDotSelector"] = 0
+        self.countSynth.createHit()
+        if self.engageIncreaseTempo:
+            self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] = str(int(self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1]) + 1)
+            if self.rhythmIndex >= 10 + self.rhythmIndexSinceLastActivatedTempoChange: # only increase by 10 bpm at a time
+                self.engageIncreaseTempo = False
+                self.rhythmIndexSinceLastActivatedTempoChange = self.rhythmIndex
+            self.handleTempoChange()
+        elif self.engageDecreaseTempo:
+            self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] = str(int(self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1]) - 1)
+            if self.rhythmIndex >= 10 + self.rhythmIndexSinceLastActivatedTempoChange: #so that we only decrease by 10 bpm at a time
+                self.engageDecreaseTempo = False
+                self.rhythmIndexSinceLastActivatedTempoChange = self.rhythmIndex
+            self.handleTempoChange()
+        if self.rhythmIndex % num2 == 0:
+            self.fastSynth.createHit()
+        if self.rhythmIndex % num1 == 0:
+            self.slowSynth.createHit()
 
-    
+        if self.rhythmIndex % (num1 * num2) == (num1*num2) - 1:  #end of a cycle
+            accuracy = ui.getAverageBrightness(self.learnPolyrhythmScreen.eventControl["dotColors"])/255
+            if accuracy < .95:
+                self.madeMistakeSinceThisCycle = True
+                self.learnPolyrhythmScreen.eventControl["streak"] = 0
+            elif not self.madeMistakeSinceThisCycle:
+                self.learnPolyrhythmScreen.eventControl["streak"] += 1
+                if self.learnPolyrhythmScreen.eventControl["streak"] > self.learnPolyrhythmScreen.eventControl["bestStreak"]:
+                    self.learnPolyrhythmScreen.eventControl["bestStreak"] = self.learnPolyrhythmScreen.eventControl["streak"]
+            else:
+                self.madeMistakeSinceThisCycle = False
+                self.learnPolyrhythmScreen.eventControl["streak"] += 1
+                if self.learnPolyrhythmScreen.eventControl["streak"] > self.learnPolyrhythmScreen.eventControl["bestStreak"]:
+                    self.learnPolyrhythmScreen.eventControl["bestStreak"] = self.learnPolyrhythmScreen.eventControl["streak"]
+
+            
+
+        self.rhythmIndex += 1
+        
 
     def inputAudioStreamCallback(self, inputAudio, frameCount, timeInfo, status):
         if self.learnPolyrhythmScreen in self.currentScreens:
@@ -190,6 +228,11 @@ class MainApp(App):
                 self.learnPolyrhythmScreen.eventControl["gearRotationAnimation"][1] = True
             else:
                 self.learnPolyrhythmScreen.eventControl["gearRotationAnimation"][1] = False
+            if self.learnPolyrhythmScreen.eventControl["isMouseInsideTapTempoBox"][0](event.x, event.y, self.learnPolyrhythmScreen):
+                self.learnPolyrhythmScreen.eventControl["isMouseInsideTapTempoBox"][1] = "purple"
+            else:
+                self.learnPolyrhythmScreen.eventControl["isMouseInsideTapTempoBox"][1] = "yellow"
+                self.tapTimes = []
         if self.preferencesScreen in self.currentScreens and self.preferencesScreen.currentAnimationState == "animateNormalPos":
             grid = self.preferencesScreen.eventControl["settings"]
             result = grid.getSettingForMousePosition(event.x, event.y)
@@ -249,6 +292,10 @@ class MainApp(App):
                 self.preferencesScreen.currentAnimationState = "enterDown"
                 self.learnPolyrhythmScreen.currentAnimationState = "exitUp"
                 self.resetPolyrhythmAttributes()
+            if self.learnPolyrhythmScreen.eventControl["isMouseInsideTapTempoBox"][1] == "purple":
+                self.learnPolyrhythmScreen.eventControl["isMouseInsideTapTempoBox"][1] = "red"
+                self.tapTimes.append(self.tapTempoTimer)
+                self.updateTempoForTapTempo()
         if self.preferencesScreen in self.currentScreens and self.preferencesScreen.currentAnimationState == "animateNormalPos":
             grid = self.preferencesScreen.eventControl["settings"]
             result = grid.getSettingForMousePosition(event.x, event.y)
@@ -265,7 +312,35 @@ class MainApp(App):
                 self.learnPolyrhythmScreen.currentAnimationState = "enterDown"
                 self.resetPolyrhythmAttributes()
                 self.updateSettings()
-                
+    
+    def mouseReleased(self, event):
+        if self.learnPolyrhythmScreen in self.currentScreens:
+            if self.learnPolyrhythmScreen.eventControl["isMouseInsideTapTempoBox"][0](event.x, event.y, self.learnPolyrhythmScreen):
+                self.learnPolyrhythmScreen.eventControl["isMouseInsideTapTempoBox"][1] = "purple"
+            else:
+                self.learnPolyrhythmScreen.eventControl["isMouseInsideTapTempoBox"][1] = "yellow"
+                self.tapTimes = []
+
+    #update the tempo based on an estimate of what the user wants the tempo to be based on the times of their taps in tapTimes
+    def updateTempoForTapTempo(self):
+        if len(self.tapTimes) < 2:
+            return
+        differenceSum = 0 #we are going to find the average time difference between all the taps
+        for i in range(len(self.tapTimes) - 1):
+            difference = self.tapTimes[i+1] - self.tapTimes[i]
+            differenceSum += difference
+
+        if differenceSum == 0: #prevent division by zero error
+            return
+        avgDif = differenceSum / (len(self.tapTimes) - 1) #this is the desired quarter note pulse, so seconds per beat
+        beatsPerSecond = 1/(avgDif)
+        newTempo = beatsPerSecond*60
+        self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1] = str(int(newTempo))
+        self.tempo = newTempo
+        self.handleTempoChange(True)
+
+
+
     
     def resetPolyrhythmAttributes(self):
         self.timeSinceStart = 0
@@ -443,12 +518,14 @@ class MainApp(App):
     #called whenever the user returns to self.learnPolyrhythmScreen from self.preferencesScreen to update any state that should be changed from the new settings
     def updateSettings(self):
         grid = self.preferencesScreen.eventControl["settings"]
-        slowNoteFrequency = getFrequencyFromMidiNote(grid.rows[2][int(grid.selected[2])], grid.rows[3][int(grid.selected[3])])
-        fastNoteFrequency = getFrequencyFromMidiNote(grid.rows[4][int(grid.selected[4])], grid.rows[5][int(grid.selected[5])])
-        countNoteFrequency = getFrequencyFromMidiNote(grid.rows[6][int(grid.selected[6])], grid.rows[7][int(grid.selected[7])])
+        rowIndexOfFirstNoteSetting = 3
+        slowNoteFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting][int(grid.selected[rowIndexOfFirstNoteSetting])], grid.rows[rowIndexOfFirstNoteSetting + 1][int(grid.selected[rowIndexOfFirstNoteSetting + 1])])
+        fastNoteFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting + 2][int(grid.selected[rowIndexOfFirstNoteSetting + 2])], grid.rows[rowIndexOfFirstNoteSetting + 3][int(grid.selected[rowIndexOfFirstNoteSetting + 3])])
+        countNoteFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting + 4][int(grid.selected[rowIndexOfFirstNoteSetting + 4])], grid.rows[rowIndexOfFirstNoteSetting + 5][int(grid.selected[rowIndexOfFirstNoteSetting + 5])])
         self.slowSynth.changeFrequency(slowNoteFrequency)
         self.fastSynth.changeFrequency(fastNoteFrequency)
         self.countSynth.changeFrequency(countNoteFrequency)
+        self.learnPolyrhythmScreen.eventControl["drawStreaks"] = (self.preferencesScreen.eventControl["settings"].selected[2] == 1.0)
 
     #called whenever the play or paused button (same button) is pressed
     #manage the events of turning off and on the sound and animation
@@ -463,15 +540,17 @@ class MainApp(App):
 
 
     #----------------------------------- these methods handle updates to variables when a tempo change happens
-    def handleTempoChange(self):
-        self.updateTimePerSubPulse()
+    #say whether the tempo change is coming from tap tempo or a change to the box
+    def handleTempoChange(self, tapTempo = False):
+        self.updateTimePerSubPulse(tapTempo)
 
-    def updateTimePerSubPulse(self):
-        tempo = int(self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1])
-        if tempo != 0:
+    def updateTimePerSubPulse(self, tapTempo):
+        if self.tempo == None or not tapTempo:
+            self.tempo = int(self.learnPolyrhythmScreen.eventControl["typedInsideTempoBox"][1])
+        if self.tempo != 0:
             num2, num1 = self.getPolyrhythm()
             #num1 is the slower note, and we want its pulse to match the quarter note, which is given by the tempo
-            timePerQuarterNote = (1/tempo)*(60)
+            timePerQuarterNote = (1/self.tempo)*(60)
             timePerSlowNote = timePerQuarterNote
             #the rhythm consits of the slow note happening num1 times and the fast note happening num2 times
             #the total number of mini clicks in the whole duration is num1*num2
