@@ -2,6 +2,7 @@ from cmu_112_graphics import * #cmu 112 graphics taken from the course website
 import AppUI as ui
 import Synth
 import pyaudio, numpy as np
+import time
 
 
 #---------------------------------------------------------------- App.y helper functions
@@ -81,9 +82,10 @@ class MainApp(App):
         #-------------------------------------------
 
         #------------------------------------------ initialize synth
-        self.slowSynth = Synth.Synthesizer(520, rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/3)
-        self.fastSynth = Synth.Synthesizer(520*(3/2), rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/3)
-        self.countSynth = Synth.Synthesizer(520*(6/15), rate, (2* np.pi, np.sin), framesPerBuffer, self.dtype, self.maxAmplitude/15)
+        wavetable = Synth.triangle()
+        self.slowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/3)
+        self.fastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/3)
+        self.countSynth = Synth.Synthesizer(520*(6/15), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/15)
         #------------------------------------------
 
         #https://people.csail.mit.edu/hubert/pyaudio/docs/ <---- learned to set up pyaudio streams primarily from this site
@@ -134,10 +136,18 @@ class MainApp(App):
             self.tapTempoTimer = 0
         else:
             self.tapTempoTimer += self.timePerBuffer
+        
         slowSynthData = self.slowSynth.getAudioData()
         fastSynthData = self.fastSynth.getAudioData()
         countSynthData = self.countSynth.getAudioData()
-        data = slowSynthData + fastSynthData + countSynthData
+        data = countSynthData
+        if self.learnPolyrhythmScreen in self.currentScreens:
+            greenDeactivated = ui.inverseRgbColorString(self.learnPolyrhythmScreen.eventControl["isMouseInsideGreenToggleBox"][1]) == (0, 50, 0)
+            blueDeactivated =  ui.inverseRgbColorString(self.learnPolyrhythmScreen.eventControl["isMouseInsideBlueToggleBox"][1]) == (0, 0, 50)
+            if not greenDeactivated: 
+                data += fastSynthData
+            if not blueDeactivated:
+                data += slowSynthData
         return (data, pyaudio.paContinue)
         
     #there are a lot of things I need to do every sub pulse so organizing it this way just makes it cleaner
@@ -166,7 +176,7 @@ class MainApp(App):
             self.slowSynth.createHit()
 
         if self.rhythmIndex % (num1 * num2) == (num1*num2) - 1:  #end of a cycle
-            accuracy = ui.getAverageBrightness(self.learnPolyrhythmScreen.eventControl["dotColors"])/255
+            accuracy = ui.getAverageBrightness(self.learnPolyrhythmScreen.eventControl["dotColorsForAccuracy"])/255
             if accuracy < .95:
                 self.madeMistakeSinceThisCycle = True
                 self.learnPolyrhythmScreen.eventControl["streak"] = 0
@@ -179,8 +189,6 @@ class MainApp(App):
                 self.learnPolyrhythmScreen.eventControl["streak"] += 1
                 if self.learnPolyrhythmScreen.eventControl["streak"] > self.learnPolyrhythmScreen.eventControl["bestStreak"]:
                     self.learnPolyrhythmScreen.eventControl["bestStreak"] = self.learnPolyrhythmScreen.eventControl["streak"]
-
-            
 
         self.rhythmIndex += 1
         
@@ -296,6 +304,17 @@ class MainApp(App):
                 self.learnPolyrhythmScreen.eventControl["isMouseInsideTapTempoBox"][1] = "red"
                 self.tapTimes.append(self.tapTempoTimer)
                 self.updateTempoForTapTempo()
+            if self.learnPolyrhythmScreen.eventControl["isMouseInsideGreenToggleBox"][0](event.x, event.y, self.learnPolyrhythmScreen):
+                if self.learnPolyrhythmScreen.eventControl["isMouseInsideGreenToggleBox"][1] == ui.rgbColorString(0, 180, 0):
+                    self.learnPolyrhythmScreen.eventControl["isMouseInsideGreenToggleBox"][1] = ui.rgbColorString(0, 50, 0)
+                else:
+                    self.learnPolyrhythmScreen.eventControl["isMouseInsideGreenToggleBox"][1] = ui.rgbColorString(0, 180, 0)
+            elif self.learnPolyrhythmScreen.eventControl["isMouseInsideBlueToggleBox"][0](event.x, event.y, self.learnPolyrhythmScreen):
+                if self.learnPolyrhythmScreen.eventControl["isMouseInsideBlueToggleBox"][1] == ui.rgbColorString(0, 0, 180):
+                    self.learnPolyrhythmScreen.eventControl["isMouseInsideBlueToggleBox"][1] = ui.rgbColorString(0, 0, 50)
+                else:
+                    self.learnPolyrhythmScreen.eventControl["isMouseInsideBlueToggleBox"][1] = ui.rgbColorString(0, 0, 180)
+          
         if self.preferencesScreen in self.currentScreens and self.preferencesScreen.currentAnimationState == "animateNormalPos":
             grid = self.preferencesScreen.eventControl["settings"]
             result = grid.getSettingForMousePosition(event.x, event.y)
@@ -329,7 +348,6 @@ class MainApp(App):
         for i in range(len(self.tapTimes) - 1):
             difference = self.tapTimes[i+1] - self.tapTimes[i]
             differenceSum += difference
-
         if differenceSum == 0: #prevent division by zero error
             return
         avgDif = differenceSum / (len(self.tapTimes) - 1) #this is the desired quarter note pulse, so seconds per beat
@@ -422,7 +440,7 @@ class MainApp(App):
     def updateTempo(self):
         num1, num2 = self.getPolyrhythm()
   
-        accuracy = ui.getAverageBrightness(self.learnPolyrhythmScreen.eventControl["dotColors"])/255
+        accuracy = ui.getAverageBrightness(self.learnPolyrhythmScreen.eventControl["dotColorsForAccuracy"])/255
 
         stationaryTempo = not self.engageIncreaseTempo and not self.engageDecreaseTempo
 
@@ -440,12 +458,17 @@ class MainApp(App):
 
 
     def handleUserDrumming(self, input):
+        if self.hasUserTappedNote: return
         self.learnPolyrhythmScreen.eventControl["selectorSqueezeSize"] = .75
         num1, num2 = self.getPolyrhythm()
         timeToPastClick = self.timeSinceStart - self.timeAtLastNote #at this note, rhythmIndex was the current rhythmIndex - 1
         timeToNextClick = self.timeAtLastNote + self.timePerSubPulse - self.timeSinceStart #at this note, rhythmIndex will be the current rhythmIndex
         pastRhythmClick = self.getPastRhythmClick() #get the index of the last sub pulse which was played as part of the polyrhythm
         nextRhythmClick = self.getNextRhythmClick() #get the index of the next sub pulse which was played as part of the polyrhythm
+        if pastRhythmClick == None or nextRhythmClick == None: 
+            if not self.hasUserTappedNote:
+                self.hasUserTappedNote = True
+            return #deactivated all notes
         timeToPastRhythmClick = timeToPastClick + self.timePerSubPulse*(self.rhythmIndex - 1 - pastRhythmClick)
         timeToNextRhythmClick = timeToNextClick + self.timePerSubPulse*(nextRhythmClick - self.rhythmIndex)
         timeToUse = None
@@ -460,35 +483,50 @@ class MainApp(App):
             self.hasUserTappedNote = True
             self.updateNoteColor(timeToUse, indexToUse)
         
-        
-
-
-
-
-
+    
     #return the index of the last note which was played
     def getPastRhythmClick(self):
         num1, num2 = self.getPolyrhythm()
+        greenOff =  ui.inverseRgbColorString(self.learnPolyrhythmScreen.eventControl["isMouseInsideGreenToggleBox"][1]) == (0, 50, 0)
+        blueOff = ui.inverseRgbColorString(self.learnPolyrhythmScreen.eventControl["isMouseInsideBlueToggleBox"][1]) == (0, 0, 50)
         start = self.rhythmIndex - 1
-        while start % num1 != 0 and start % num2 != 0:
-            start -= 1
+        if greenOff and not blueOff:
+            while start % num1 != 0:
+                start -= 1
+        elif greenOff and not blueOff:
+            while start % num2 != 0:
+                start -= 1
+        elif greenOff and blueOff:
+            return None
+        else:
+            while start % num1 != 0 and start % num2 != 0:
+                start -= 1
         return start
-
+    
     #return the index of the next note which will be played
     def getNextRhythmClick(self):
         num1, num2 = self.getPolyrhythm()
+        greenOff =  ui.inverseRgbColorString(self.learnPolyrhythmScreen.eventControl["isMouseInsideGreenToggleBox"][1]) == (0, 50, 0)
+        blueOff = ui.inverseRgbColorString(self.learnPolyrhythmScreen.eventControl["isMouseInsideBlueToggleBox"][1]) == (0, 0, 50)
         start = self.rhythmIndex
-        while start % num1 != 0 and start % num2 != 0:
-            start += 1
+        if greenOff and not blueOff:
+            while start % num1 != 0:
+                start += 1
+        elif greenOff and not blueOff:
+            while start % num2 != 0:
+                start += 1
+        elif greenOff and blueOff:
+            return None
+        else:
+            while start % num1 != 0 and start % num2 != 0:
+                start += 1
         return start
-
- 
-
-
+    
 
     def updateNoteColor(self, time, noteIndex):
+        if noteIndex == None:
+            return
         time -= 10*self.timePerBuffer #account for latency
-        self.hasUserTappedNote = True
         num1, num2 = self.getPolyrhythm()
         assert(noteIndex % num1 == 0 or noteIndex % num2 == 0)
         time = abs(time)
@@ -515,16 +553,26 @@ class MainApp(App):
             currentColor = (0, colorValue, colorValue)
         self.learnPolyrhythmScreen.eventControl["dotColors"][noteIndex] = ui.rgbColorString(currentColor[0], currentColor[1], currentColor[2])
 
+    def convertOscillatorStringToOscillator(self, osc):
+        assert(osc in ["saw", "square", "triangle", "sin"])
+        return eval(f"Synth.{osc}()") #mwahaha
+
     #called whenever the user returns to self.learnPolyrhythmScreen from self.preferencesScreen to update any state that should be changed from the new settings
     def updateSettings(self):
         grid = self.preferencesScreen.eventControl["settings"]
         rowIndexOfFirstNoteSetting = 3
         slowNoteFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting][int(grid.selected[rowIndexOfFirstNoteSetting])], grid.rows[rowIndexOfFirstNoteSetting + 1][int(grid.selected[rowIndexOfFirstNoteSetting + 1])])
-        fastNoteFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting + 2][int(grid.selected[rowIndexOfFirstNoteSetting + 2])], grid.rows[rowIndexOfFirstNoteSetting + 3][int(grid.selected[rowIndexOfFirstNoteSetting + 3])])
-        countNoteFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting + 4][int(grid.selected[rowIndexOfFirstNoteSetting + 4])], grid.rows[rowIndexOfFirstNoteSetting + 5][int(grid.selected[rowIndexOfFirstNoteSetting + 5])])
+        fastNoteFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting + 3][int(grid.selected[rowIndexOfFirstNoteSetting + 3])], grid.rows[rowIndexOfFirstNoteSetting + 4][int(grid.selected[rowIndexOfFirstNoteSetting + 4])])
+        countNoteFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting + 6][int(grid.selected[rowIndexOfFirstNoteSetting + 6])], grid.rows[rowIndexOfFirstNoteSetting + 7][int(grid.selected[rowIndexOfFirstNoteSetting + 7])])
         self.slowSynth.changeFrequency(slowNoteFrequency)
         self.fastSynth.changeFrequency(fastNoteFrequency)
         self.countSynth.changeFrequency(countNoteFrequency)
+        slowSynthWavetable = self.convertOscillatorStringToOscillator(grid.rows[rowIndexOfFirstNoteSetting + 2][int(grid.selected[rowIndexOfFirstNoteSetting + 2])])
+        self.slowSynth.setWavetable(slowSynthWavetable[0], slowSynthWavetable[1])
+        fastSynthWavetable = self.convertOscillatorStringToOscillator(grid.rows[rowIndexOfFirstNoteSetting + 5][int(grid.selected[rowIndexOfFirstNoteSetting + 5])])
+        self.fastSynth.setWavetable(fastSynthWavetable[0], fastSynthWavetable[1])
+        countSynthWavetable = self.convertOscillatorStringToOscillator(grid.rows[rowIndexOfFirstNoteSetting + 8][int(grid.selected[rowIndexOfFirstNoteSetting + 8])])
+        self.countSynth.setWavetable(countSynthWavetable[0], countSynthWavetable[1])
         self.learnPolyrhythmScreen.eventControl["drawStreaks"] = (self.preferencesScreen.eventControl["settings"].selected[2] == 1.0)
 
     #called whenever the play or paused button (same button) is pressed
