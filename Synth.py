@@ -5,6 +5,34 @@ def normalize(data, desiredMax):
     currentMax = np.max(data)
     return data * (desiredMax/currentMax)
 
+#---------------wavetables!
+def sin():
+    period = 2*np.pi
+    def func(x):
+        return np.sin(x)
+    return (period, func)
+
+def saw():
+    period = 1
+    def func(x):
+        value = x - int(x)
+        return (2*value - 1)
+    return (period, func)
+
+def square():
+    period = 1
+    def func(x):
+        value = x - int(x)
+        return -1 if value < .5 else 1
+    return (period, func)
+
+def triangle():
+    period = 1
+    def func(x):
+        value = x - int(x)
+        return 4*value - 1 if value < .5 else 1 - 4*(value - .5)
+    return (period, func)
+#-----------------------
 
 #handle the actual generation of sound data
 class Synthesizer():
@@ -25,6 +53,10 @@ class Synthesizer():
 
     def changeFrequency(self, freq):
         self.frequency = freq
+    
+    def setWavetable(self, period, wavetable):
+        self.waveTablePeriod = period
+        self.waveTable = wavetable
 
     #use for a short percussive sound
     def createHit(self):
