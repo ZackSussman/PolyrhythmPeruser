@@ -32,7 +32,8 @@ def getAverageBrightness(colors):
             else:
                 total += color[1]
             n += 1
-    assert(n != 0)
+    if n == 0:
+        return 1
     return total/n
 #---------------------------------------
 
@@ -386,6 +387,25 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
                                 bottomRightX - distFromRight, bottomRightY - upDownMargin, fill = "black")
     drawBlackSquareObject = ObjectToDraw(0, 0, drawBlackSquare)
 
+
+    def drawMarker(canvas, x, y, screen, gridSize, xShift, yShift, row, col, changeInX, color):
+        changeInX *= gridSize
+        topMargin = appHeight/10
+        sideMargin = appWidth/10
+        xCoord = x + sideMargin + gridSize*col + xShift
+        yCoord = y + topMargin + gridSize*row + yShift
+        jumpIn = gridSize*7/10
+        if not (col == num2 - 1 and changeInX > .5):
+            canvas.create_oval(xCoord + changeInX + jumpIn, yCoord + jumpIn, xCoord + gridSize + changeInX - jumpIn, yCoord + gridSize - jumpIn, outline = color, width = gridSize/23)
+        elif row != num1 - 1:
+            xCoord = x + sideMargin + xShift - gridSize
+            yCoord += gridSize
+            canvas.create_oval(xCoord + changeInX + jumpIn,jumpIn + yCoord, xCoord - jumpIn + gridSize + changeInX, yCoord - jumpIn + gridSize, outline = color, width = gridSize/23)
+        else:
+            xCoord = x + sideMargin + xShift - gridSize
+            yCoord = y + topMargin + yShift
+            canvas.create_oval(xCoord +jumpIn + changeInX, jumpIn +yCoord, xCoord - jumpIn + gridSize + changeInX, yCoord - jumpIn + gridSize, outline = color, width = gridSize/23)
+
     def drawNoteGrid(canvas, x, y, screen):
         topMargin = appHeight/10
         bottomMargin = appHeight/6
@@ -406,11 +426,6 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
                 yCoord = y + topMargin + gridSize*row + yShift
                 jumpIn = gridSize*7/10
 
-                if screen.eventControl["currentDotSelector"] == num2*row + col:
-                    brightness = getAverageBrightness(screen.eventControl["dotColors"])/255
-                    selectorColor = rgbColorString(int(brightness*144), int(brightness*238), int(brightness*144)) #numbers for TKinter's lightgreen
-                    newJumpIn = (3*jumpIn/8)*screen.eventControl["selectorSqueezeSize"]
-                    canvas.create_oval(xCoord + newJumpIn, yCoord + newJumpIn, xCoord + gridSize - newJumpIn, yCoord + gridSize - newJumpIn, outline = selectorColor, width = gridSize/23)
                 color = screen.eventControl["dotColors"][num2*row + col]
                 greenDeactivated = inverseRgbColorString(color)[1] != 0 and inverseRgbColorString(screen.eventControl["isMouseInsideGreenToggleBox"][1]) == (0, 50, 0)
                 blueDeactivated = inverseRgbColorString(color)[2] != 0 and inverseRgbColorString(screen.eventControl["isMouseInsideBlueToggleBox"][1]) == (0, 0, 50)
@@ -423,6 +438,36 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
                 screen.eventControl["dotColorsForAccuracy"][num2*row + col] = color
                 canvas.create_oval(xCoord + jumpIn, yCoord + jumpIn, xCoord + gridSize - jumpIn, yCoord + gridSize - jumpIn,
                 fill = color, outline = "black")
+
+                moveOverBy = screen.eventControl["dotPositionFractionalPart"]
+                assert(moveOverBy < 1)
+                #move over by is fractional relative to the gridSize
+                changeInX = gridSize*moveOverBy
+                brightness = getAverageBrightness(screen.eventControl["dotColors"])/255
+                selectorColor = rgbColorString(int(brightness*144), int(brightness*238), int(brightness*144)) #numbers for TKinter's lightgreen
+                newJumpIn = (3*jumpIn/8)*screen.eventControl["selectorSqueezeSize"]
+                if (screen.eventControl["currentDotSelector"] == num2*row + col - 1 and col != 0):
+                    canvas.create_oval(xCoord - gridSize + newJumpIn + changeInX, yCoord + newJumpIn, xCoord - newJumpIn + changeInX, yCoord + gridSize - newJumpIn, outline = selectorColor, width = gridSize/23)
+                elif screen.eventControl["currentDotSelector"] == num2*row + col and (col == num2 - 1) and moveOverBy <= .5:
+                    canvas.create_oval(xCoord + newJumpIn + changeInX, yCoord + newJumpIn, xCoord + gridSize - newJumpIn + changeInX, yCoord + gridSize - newJumpIn, outline = selectorColor, width = gridSize/23)
+                elif screen.eventControl["currentDotSelector"] == num2*row + col and (col == num2 - 1) and moveOverBy > .5:
+                    xCoord = x + sideMargin + xShift - gridSize
+                    if row == num1 - 1:
+                        yCoord = y + topMargin + yShift
+                    else:
+                        yCoord += gridSize
+                    canvas.create_oval(xCoord + newJumpIn + changeInX, yCoord + newJumpIn, xCoord + gridSize - newJumpIn + changeInX, yCoord + gridSize - newJumpIn, outline = selectorColor, width = gridSize/23)
+        i = 0
+        while i < len(screen.eventControl["playedPositions"]):
+            played = screen.eventControl["playedPositions"][i]
+            drawMarker(canvas, x, y, screen, gridSize, xShift, yShift, played[0], played[1], played[2], rgbColorString(played[3][0], played[3][1], played[3][2]))
+            played[3] = (int(.9*played[3][0]), int(.9*played[3][1]), int(.9*played[3][2]))
+            screen.eventControl["playedPositions"][i] = played
+            if .9*played[3][0] < 20:
+                screen.eventControl["playedPositions"].pop(i)
+                i -= 1
+            i += 1
+
     drawNoteGridObject = ObjectToDraw(0, 0, drawNoteGrid)
 
     def updateSelectorSquezeSize(screen):
@@ -627,7 +672,9 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
 
     dotColorsForAccuracy = defaultDotColors + []
 
-    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0], "dotColors": defaultDotColors, "dotColorsForAccuracy":dotColorsForAccuracy, "selectorSqueezeSize":1, "mouseInsideBackButton":[isMouseInsideBackButton,"darkred"], "gearRotationAnimation":[0, False, isMouseOverSettingsButton], "streak":0, "bestStreak":0, "drawStreaks":False, "isMouseInsideTapTempoBox":[isMouseInsideTapTempoBox, "yellow"], "isMouseInsideBlueToggleBox":[isMouseInsideBlueToggleBox, rgbColorString(0, 0, 180)], "isMouseInsideGreenToggleBox":[isMouseInsideGreenToggleBox, rgbColorString(0, 180, 0)]}
+    playedPositions = [] #contains tuples of (row, col, xMoveOver)
+
+    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0], "dotColors": defaultDotColors, "dotColorsForAccuracy":dotColorsForAccuracy, "selectorSqueezeSize":1, "mouseInsideBackButton":[isMouseInsideBackButton,"darkred"], "gearRotationAnimation":[0, False, isMouseOverSettingsButton], "streak":0, "bestStreak":0, "drawStreaks":False, "isMouseInsideTapTempoBox":[isMouseInsideTapTempoBox, "yellow"], "isMouseInsideBlueToggleBox":[isMouseInsideBlueToggleBox, rgbColorString(0, 0, 180)], "isMouseInsideGreenToggleBox":[isMouseInsideGreenToggleBox, rgbColorString(0, 180, 0)], "dotPositionFractionalPart":0, "playedPositions":playedPositions}
     
 
     animationState = {"enterDown":animateEnterDown, "animateNormalPos":animateNormalPos, "animatePolyrhythm":animatePolyrhythm, "exitUp":animateExitUp}
@@ -770,6 +817,7 @@ def getSettingsScreen(appWidth, appHeight):
     buttons = ["t", "n"]
     tempoFollowMode = ["On", "Off"]
     enableStreaks = ["On", "Off"]
+    continuousLabel = ["On", "Off"]
     slowNotePitch = ["A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"]
     slowNoteOctave = ["1", "2", "3", "4", "5", "6", "7", "8"]
     slowNoteOscillators = ["sin", "triangle", "saw", "square"]
@@ -782,6 +830,7 @@ def getSettingsScreen(appWidth, appHeight):
     grid.addRow("controller options", buttons)
     grid.addRow("tempo follow mode", tempoFollowMode, 1)
     grid.addRow("enable streaks", enableStreaks, 0)
+    grid.addRow("continuous label", continuousLabel, 1)
     grid.addRow("slow note pitch", slowNotePitch, 2)
     grid.addRow("slow note octave", slowNoteOctave, 4)
     grid.addRow("slow note oscillator", slowNoteOscillators, 0)
