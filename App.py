@@ -119,8 +119,13 @@ class MainApp(App):
     def outputAudioStreamCallback(self, inputAudio, frameCount, timeInfo, status):
         if self.learnPolyrhythmScreen in self.currentScreens and self.learnPolyrhythmScreen.currentAnimationState == 'animatePolyrhythm':
             num1, num2 = self.getPolyrhythm()
+            grid = self.preferencesScreen.eventControl["settings"]
             if self.timeSinceStart >= self.timeAtLastNote + self.timePerSubPulse:
                 self.handleEventsPerSubPulse(num1, num2)
+            if grid.rows[3][int(grid.selected[3])] == "On" and self.rhythmIndex != 0:
+                self.learnPolyrhythmScreen.eventControl["dotPositionFractionalPart"] = (self.timeSinceStart - self.timeAtLastNote)/self.timePerSubPulse
+            else:
+                self.learnPolyrhythmScreen.eventControl["dotPositionFractionalPart"] = 0
             if self.preferencesScreen.eventControl["settings"].selected[1] == 1.0:
                 self.updateTempo()
             #the way we test for a switchover causes it to be True way too many times so this mechanism ensures we only get a single call
@@ -177,6 +182,7 @@ class MainApp(App):
 
         if self.rhythmIndex % (num1 * num2) == (num1*num2) - 1:  #end of a cycle
             accuracy = ui.getAverageBrightness(self.learnPolyrhythmScreen.eventControl["dotColorsForAccuracy"])/255
+            self.learnPolyrhythmScreen.eventControl["playedPositions"] = []
             if accuracy < .95:
                 self.madeMistakeSinceThisCycle = True
                 self.learnPolyrhythmScreen.eventControl["streak"] = 0
@@ -423,8 +429,9 @@ class MainApp(App):
         pastRhythmClick = self.getPastRhythmClick()
         nextRhythmClick = self.getNextRhythmClick()
 
-
-
+        if pastRhythmClick == None or nextRhythmClick == None:
+            return False
+ 
         timeToPastRhythmClick = timeToPastClick + self.timePerSubPulse*(self.rhythmIndex - 1 - pastRhythmClick)
         timeToNextRhythmClick = timeToNextClick + self.timePerSubPulse*(nextRhythmClick - self.rhythmIndex)
 
@@ -461,6 +468,15 @@ class MainApp(App):
         if self.hasUserTappedNote: return
         self.learnPolyrhythmScreen.eventControl["selectorSqueezeSize"] = .75
         num1, num2 = self.getPolyrhythm()
+        rhythmIndex = self.rhythmIndex - 1
+        row = (rhythmIndex % (num1*num2)) // num1
+        col = (rhythmIndex % (num1*num2)) % num1
+        xMoveOver = (self.timeSinceStart - self.timeAtLastNote) / self.timePerSubPulse
+        self.learnPolyrhythmScreen.eventControl["playedPositions"].append([row, col, xMoveOver, (255, 255, 255)])
+        grid = self.preferencesScreen.eventControl["settings"]
+        if grid.rows[3][int(grid.selected[3])] != "On":
+            self.learnPolyrhythmScreen.eventControl["playedPositions"] = []
+
         timeToPastClick = self.timeSinceStart - self.timeAtLastNote #at this note, rhythmIndex was the current rhythmIndex - 1
         timeToNextClick = self.timeAtLastNote + self.timePerSubPulse - self.timeSinceStart #at this note, rhythmIndex will be the current rhythmIndex
         pastRhythmClick = self.getPastRhythmClick() #get the index of the last sub pulse which was played as part of the polyrhythm
@@ -526,7 +542,7 @@ class MainApp(App):
     def updateNoteColor(self, time, noteIndex):
         if noteIndex == None:
             return
-        time -= 10*self.timePerBuffer #account for latency
+        #time -= 10*self.timePerBuffer #account for latency
         num1, num2 = self.getPolyrhythm()
         assert(noteIndex % num1 == 0 or noteIndex % num2 == 0)
         time = abs(time)
@@ -560,7 +576,7 @@ class MainApp(App):
     #called whenever the user returns to self.learnPolyrhythmScreen from self.preferencesScreen to update any state that should be changed from the new settings
     def updateSettings(self):
         grid = self.preferencesScreen.eventControl["settings"]
-        rowIndexOfFirstNoteSetting = 3
+        rowIndexOfFirstNoteSetting = 4
         slowNoteFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting][int(grid.selected[rowIndexOfFirstNoteSetting])], grid.rows[rowIndexOfFirstNoteSetting + 1][int(grid.selected[rowIndexOfFirstNoteSetting + 1])])
         fastNoteFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting + 3][int(grid.selected[rowIndexOfFirstNoteSetting + 3])], grid.rows[rowIndexOfFirstNoteSetting + 4][int(grid.selected[rowIndexOfFirstNoteSetting + 4])])
         countNoteFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting + 6][int(grid.selected[rowIndexOfFirstNoteSetting + 6])], grid.rows[rowIndexOfFirstNoteSetting + 7][int(grid.selected[rowIndexOfFirstNoteSetting + 7])])
