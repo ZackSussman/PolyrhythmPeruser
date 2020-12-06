@@ -74,7 +74,7 @@ class MainApp(App):
         #------------------------------------------- consts
         framesPerBuffer = 2**6 #samples per buffer
         channels = 1
-        rate = 48000 #samples per second
+        rate = 32000 #samples per second
         dType = pyaudio.paInt16 #for pyaudio
         self.dtype = np.int16 #for numpy
         self.maxAmplitude = 32767 #paInt16
@@ -83,9 +83,11 @@ class MainApp(App):
 
         #------------------------------------------ initialize synth
         wavetable = Synth.triangle()
-        self.slowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/3)
-        self.fastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/3)
-        self.countSynth = Synth.Synthesizer(520*(6/15), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/15)
+        self.slowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12)
+        self.fastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12)
+        self.countSynth = Synth.Synthesizer(520*(6/15), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/60)
+        self.userSlowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12)
+        self.userFastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12)
         #------------------------------------------
 
         #https://people.csail.mit.edu/hubert/pyaudio/docs/ <---- learned to set up pyaudio streams primarily from this site
@@ -112,40 +114,20 @@ class MainApp(App):
             stream_callback = self.inputAudioStreamCallback
         )
         self.inputStream.start_stream()
-        #------------------------------------------
-       
-
+        #------------------------------------------ 
 
     def outputAudioStreamCallback(self, inputAudio, frameCount, timeInfo, status):
-        if self.learnPolyrhythmScreen in self.currentScreens and self.learnPolyrhythmScreen.currentAnimationState == 'animatePolyrhythm':
-            num1, num2 = self.getPolyrhythm()
-            grid = self.preferencesScreen.eventControl["settings"]
-            if self.timeSinceStart >= self.timeAtLastNote + self.timePerSubPulse:
-                self.handleEventsPerSubPulse(num1, num2)
-            if grid.rows[3][int(grid.selected[3])] == "On" and self.rhythmIndex != 0:
-                self.learnPolyrhythmScreen.eventControl["dotPositionFractionalPart"] = (self.timeSinceStart - self.timeAtLastNote)/self.timePerSubPulse
-            else:
-                self.learnPolyrhythmScreen.eventControl["dotPositionFractionalPart"] = 0
-            if self.preferencesScreen.eventControl["settings"].selected[1] == 1.0:
-                self.updateTempo()
-            #the way we test for a switchover causes it to be True way too many times so this mechanism ensures we only get a single call
-            if self.testForSwitchoverToNewNote():
-                self.justDetectedAMiddlePoint = True
-            elif self.justDetectedAMiddlePoint:
-                if self.hasUserTappedNote == False: #they completely missed the note!
-                    self.updateNoteColor(self.timePerSubPulse, self.getPastRhythmClick())
-                self.hasUserTappedNote = False
-                self.justDetectedAMiddlePoint = False
-            self.timeSinceStart += self.timePerBuffer
+        start = time.time()
         if self.tapTimes == []:
             self.tapTempoTimer = 0
         else:
             self.tapTempoTimer += self.timePerBuffer
-        
         slowSynthData = self.slowSynth.getAudioData()
         fastSynthData = self.fastSynth.getAudioData()
         countSynthData = self.countSynth.getAudioData()
-        data = countSynthData
+        userSlowSynthData = self.userSlowSynth.getAudioData()
+        userFastSynthData = self.userFastSynth.getAudioData()
+        data = countSynthData + userSlowSynthData + userFastSynthData
         if self.learnPolyrhythmScreen in self.currentScreens:
             greenDeactivated = ui.inverseRgbColorString(self.learnPolyrhythmScreen.eventControl["isMouseInsideGreenToggleBox"][1]) == (0, 50, 0)
             blueDeactivated =  ui.inverseRgbColorString(self.learnPolyrhythmScreen.eventControl["isMouseInsideBlueToggleBox"][1]) == (0, 0, 50)
@@ -153,6 +135,8 @@ class MainApp(App):
                 data += fastSynthData
             if not blueDeactivated:
                 data += slowSynthData
+        self.timeSinceStart += self.timePerBuffer
+        assert(time.time() - start < self.timePerBuffer)
         return (data, pyaudio.paContinue)
         
     #there are a lot of things I need to do every sub pulse so organizing it this way just makes it cleaner
@@ -179,11 +163,12 @@ class MainApp(App):
             self.fastSynth.createHit()
         if self.rhythmIndex % num1 == 0:
             self.slowSynth.createHit()
+        
 
         if self.rhythmIndex % (num1 * num2) == (num1*num2) - 1:  #end of a cycle
             accuracy = ui.getAverageBrightness(self.learnPolyrhythmScreen.eventControl["dotColorsForAccuracy"])/255
             self.learnPolyrhythmScreen.eventControl["playedPositions"] = []
-            if accuracy < .95:
+            if accuracy < .93:
                 self.madeMistakeSinceThisCycle = True
                 self.learnPolyrhythmScreen.eventControl["streak"] = 0
             elif not self.madeMistakeSinceThisCycle:
@@ -211,7 +196,31 @@ class MainApp(App):
             self.learnPolyrhythmScreen.eventControl["getVolumeHeight"][1] = lastMaxValue
         return (inputAudio, pyaudio.paContinue)
 
+    #all animation methods are inside the screen classes, but this method must get called by timer fired to 
+    #take care of things that the audio callback funciton WAS taking care of, but we had to move it here because
+    #the audio callback was taking too long
+    def handleAnimationEvents(self):
+        if self.learnPolyrhythmScreen in self.currentScreens and self.learnPolyrhythmScreen.currentAnimationState == 'animatePolyrhythm':
+            num1, num2 = self.getPolyrhythm()
+            grid = self.preferencesScreen.eventControl["settings"]
+            if self.timeSinceStart >= self.timeAtLastNote + self.timePerSubPulse:
+                self.handleEventsPerSubPulse(num1, num2)
+            if grid.rows[3][int(grid.selected[3])] == "On" and self.rhythmIndex != 0:
+                self.learnPolyrhythmScreen.eventControl["dotPositionFractionalPart"] = (self.timeSinceStart - self.timeAtLastNote)/self.timePerSubPulse
+            else:
+                self.learnPolyrhythmScreen.eventControl["dotPositionFractionalPart"] = 0
+            if self.preferencesScreen.eventControl["settings"].selected[1] == 1.0:
+                self.updateTempo()
+            #the way we test for a switchover causes it to be True way too many times so this mechanism ensures we only get a single call
+            if self.testForSwitchoverToNewNote():
+                self.justDetectedAMiddlePoint = True
+            elif self.justDetectedAMiddlePoint:
+                if self.hasUserTappedNote == False: #they completely missed the note!
+                    self.updateNoteColor(self.timePerSubPulse, self.getPastRhythmClick())
+                self.hasUserTappedNote = False
+                self.justDetectedAMiddlePoint = False
     def timerFired(self):
+        self.handleAnimationEvents()
         for screen in self.currentScreens:
             screen.doAnimationStep()
         if self.currentScreens[-1].currentAnimationState == "animateNormalPos":
@@ -374,6 +383,8 @@ class MainApp(App):
         self.slowSynth.turnNoteOff()
         self.fastSynth.turnNoteOff()
         self.countSynth.turnNoteOff()
+        self.userFastSynth.turnNoteOff()
+        self.userSlowSynth.turnNoteOff()
         self.hasUserTappedNote = False
         self.justDetectedAMiddlePoint = False 
         self.rhythmIndexSinceLastActivatedTempoChange = 0
@@ -464,7 +475,12 @@ class MainApp(App):
         
 
 
-    def handleUserDrumming(self, input):
+    def handleUserDrumming(self, key):
+        if key == self.preferencesScreen.eventControl["settings"].rows[0][1]:
+            self.userSlowSynth.createHit()
+        elif key == self.preferencesScreen.eventControl["settings"].rows[0][2]:
+            self.userFastSynth.createHit()
+
         if self.hasUserTappedNote: return
         self.learnPolyrhythmScreen.eventControl["selectorSqueezeSize"] = .75
         num1, num2 = self.getPolyrhythm()
@@ -580,15 +596,25 @@ class MainApp(App):
         slowNoteFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting][int(grid.selected[rowIndexOfFirstNoteSetting])], grid.rows[rowIndexOfFirstNoteSetting + 1][int(grid.selected[rowIndexOfFirstNoteSetting + 1])])
         fastNoteFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting + 3][int(grid.selected[rowIndexOfFirstNoteSetting + 3])], grid.rows[rowIndexOfFirstNoteSetting + 4][int(grid.selected[rowIndexOfFirstNoteSetting + 4])])
         countNoteFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting + 6][int(grid.selected[rowIndexOfFirstNoteSetting + 6])], grid.rows[rowIndexOfFirstNoteSetting + 7][int(grid.selected[rowIndexOfFirstNoteSetting + 7])])
+        userSlowSynthFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting + 9][int(grid.selected[rowIndexOfFirstNoteSetting + 9])], grid.rows[rowIndexOfFirstNoteSetting + 10][int(grid.selected[rowIndexOfFirstNoteSetting + 10])])
+        userFastSynthFrequency = getFrequencyFromMidiNote(grid.rows[rowIndexOfFirstNoteSetting + 12][int(grid.selected[rowIndexOfFirstNoteSetting + 12])], grid.rows[rowIndexOfFirstNoteSetting + 13][int(grid.selected[rowIndexOfFirstNoteSetting + 13])])
         self.slowSynth.changeFrequency(slowNoteFrequency)
         self.fastSynth.changeFrequency(fastNoteFrequency)
         self.countSynth.changeFrequency(countNoteFrequency)
+        self.userFastSynth.changeFrequency(userFastSynthFrequency)
+        self.userSlowSynth.changeFrequency(userSlowSynthFrequency)
         slowSynthWavetable = self.convertOscillatorStringToOscillator(grid.rows[rowIndexOfFirstNoteSetting + 2][int(grid.selected[rowIndexOfFirstNoteSetting + 2])])
         self.slowSynth.setWavetable(slowSynthWavetable[0], slowSynthWavetable[1])
         fastSynthWavetable = self.convertOscillatorStringToOscillator(grid.rows[rowIndexOfFirstNoteSetting + 5][int(grid.selected[rowIndexOfFirstNoteSetting + 5])])
         self.fastSynth.setWavetable(fastSynthWavetable[0], fastSynthWavetable[1])
         countSynthWavetable = self.convertOscillatorStringToOscillator(grid.rows[rowIndexOfFirstNoteSetting + 8][int(grid.selected[rowIndexOfFirstNoteSetting + 8])])
         self.countSynth.setWavetable(countSynthWavetable[0], countSynthWavetable[1])
+        userSlowSynthWavetable = self.convertOscillatorStringToOscillator(grid.rows[rowIndexOfFirstNoteSetting + 11][int(grid.selected[rowIndexOfFirstNoteSetting + 11])])
+        self.userSlowSynth.setWavetable(userSlowSynthWavetable[0], userSlowSynthWavetable[1])
+        userFastSynthWavetable = self.convertOscillatorStringToOscillator(grid.rows[rowIndexOfFirstNoteSetting + 14][int(grid.selected[rowIndexOfFirstNoteSetting + 14])])
+        self.userFastSynth.setWavetable(userFastSynthWavetable[0], userFastSynthWavetable[1])
+        
+
         self.learnPolyrhythmScreen.eventControl["drawStreaks"] = (self.preferencesScreen.eventControl["settings"].selected[2] == 1.0)
 
     #called whenever the play or paused button (same button) is pressed
@@ -600,6 +626,8 @@ class MainApp(App):
             self.learnPolyrhythmScreen.currentAnimationState = "animateNormalPos"
             self.fastSynth.turnNoteOff()
             self.slowSynth.turnNoteOff()
+            self.userFastSynth.turnNoteOff()
+            self.userSlowSynth.turnNoteOff()
 
 
 
@@ -623,7 +651,19 @@ class MainApp(App):
             self.timePerSubPulse = timePerSlowNote/num2
 
             assert(self.timePerSubPulse > self.timePerBuffer) #if this isn't true we will have all kinds of problems
-
+        #we want the colorValue to flash and then return black by the next subpulse
+        #thus we want the time for it to go black again to be self.timePerSubPulse
+        #we have the recurrence relation on the color of the bg on a given frme by
+        # C_{f + 1} = kC_{f}, for some constant k
+        #let C_{0} = 255, then C_{n} = (k^n)(255)
+        #we want C to decrease by 255 after self.timePerSubPulse seconds have passed
+        #since each value of C happens at self.timePerBuffer seconds, we have
+        # C_{a} - C_{a + self.timePerSubPulse/self.timePerBuffer} = 255, where C_{a} = 255
+        #thus, k^{self.timePerSubPulse/self.timePerBuffer}(255) = 0
+        #this will never be exactly zero so we will use 1, so that k^{self.timePerSubPulse/self.timePerBuffer}(255) = 1
+        # implies k = (1/255)^{self.timePerSubPulse/self.timePerBuffer}
+        self.colorConstant = 1 - (240/255)**(self.timePerSubPulse/self.timePerBuffer)
+        
     #---------------------------------------------------------------------------
 
 
