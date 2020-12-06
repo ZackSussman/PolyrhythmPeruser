@@ -389,13 +389,14 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
 
 
     def drawMarker(canvas, x, y, screen, gridSize, xShift, yShift, row, col, changeInX, color):
+        compareChangeInX = changeInX
         changeInX *= gridSize
         topMargin = appHeight/10
         sideMargin = appWidth/10
         xCoord = x + sideMargin + gridSize*col + xShift
         yCoord = y + topMargin + gridSize*row + yShift
         jumpIn = gridSize*7/10
-        if not (col == num2 - 1 and changeInX > .5):
+        if not (col == num2 - 1 and compareChangeInX > .5):
             canvas.create_oval(xCoord + changeInX + jumpIn, yCoord + jumpIn, xCoord + gridSize + changeInX - jumpIn, yCoord + gridSize - jumpIn, outline = color, width = gridSize/23)
         elif row != num1 - 1:
             xCoord = x + sideMargin + xShift - gridSize
