@@ -287,7 +287,7 @@ def getPromptUserScreen(appWidth, appHeight):
 def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
 
     def drawBgColor(canvas, x, y, screen):
-        canvas.create_rectangle(x, y, x + appWidth, y + appHeight, fill = "black")
+        canvas.create_rectangle(x, y, x + appWidth, y + appHeight, fill = screen.eventControl["bgColor"])
     drawBgColorObject = ObjectToDraw(0, 0, drawBgColor)
 
     def drawPlayButton(canvas, x, y, screen):
@@ -576,7 +576,7 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
             
             secondaryAngle = (i + .5)*(2*np.pi)/numSpikes - .4*screen.eventControl["gearRotationAnimation"][0]
             canvas.create_line(circleCenterX + spikeRadius*np.cos(secondaryAngle), circleCenterY - spikeRadius*np.sin(secondaryAngle),
-                                circleCenterX + 2*spikeRadius*np.cos(secondaryAngle), circleCenterY - 2*spikeRadius*np.sin(secondaryAngle), fill=  'black', width = appWidth/100)
+                                circleCenterX + 2*spikeRadius*np.cos(secondaryAngle), circleCenterY - 2*spikeRadius*np.sin(secondaryAngle), fill=  screen.eventControl["bgColor"], width = appWidth/100)
             
             canvas.create_line(circleCenterX, circleCenterY, 
                             circleCenterX + spikeRadius*np.cos(angle), circleCenterY - spikeRadius*np.sin(angle), fill = "white", width = appWidth/220)
@@ -675,7 +675,7 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
 
     playedPositions = [] #contains tuples of (row, col, xMoveOver)
 
-    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0], "dotColors": defaultDotColors, "dotColorsForAccuracy":dotColorsForAccuracy, "selectorSqueezeSize":1, "mouseInsideBackButton":[isMouseInsideBackButton,"darkred"], "gearRotationAnimation":[0, False, isMouseOverSettingsButton], "streak":0, "bestStreak":0, "drawStreaks":False, "isMouseInsideTapTempoBox":[isMouseInsideTapTempoBox, "yellow"], "isMouseInsideBlueToggleBox":[isMouseInsideBlueToggleBox, rgbColorString(0, 0, 180)], "isMouseInsideGreenToggleBox":[isMouseInsideGreenToggleBox, rgbColorString(0, 180, 0)], "dotPositionFractionalPart":0, "playedPositions":playedPositions}
+    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0], "dotColors": defaultDotColors, "dotColorsForAccuracy":dotColorsForAccuracy, "selectorSqueezeSize":1, "mouseInsideBackButton":[isMouseInsideBackButton,"darkred"], "gearRotationAnimation":[0, False, isMouseOverSettingsButton], "streak":0, "bestStreak":0, "drawStreaks":False, "isMouseInsideTapTempoBox":[isMouseInsideTapTempoBox, "yellow"], "isMouseInsideBlueToggleBox":[isMouseInsideBlueToggleBox, rgbColorString(0, 0, 180)], "isMouseInsideGreenToggleBox":[isMouseInsideGreenToggleBox, rgbColorString(0, 180, 0)], "dotPositionFractionalPart":0, "playedPositions":playedPositions, "bgColor":rgbColorString(0, 0, 0)}
     
 
     animationState = {"enterDown":animateEnterDown, "animateNormalPos":animateNormalPos, "animatePolyrhythm":animatePolyrhythm, "exitUp":animateExitUp}
@@ -828,19 +828,33 @@ def getSettingsScreen(appWidth, appHeight):
     tempoNotePitch = ["A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"]
     tempoNoteOctave = ["1", "2", "3", "4", "5", "6", "7", "8"]
     tempoNoteOscillators = ["sin", "triangle", "saw", "square"]
+    userInput1Pitch = ["A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"]
+    userInput1Octave = ["1", "2", "3", "4", "5", "6", "7", "8"]
+    userInput1Oscillators = ["sin", "triangle", "saw", "square"]
+    userInput2Pitch = ["A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"]
+    userInput2Octave = ["1", "2", "3", "4", "5", "6", "7", "8"]
+    userInput2Oscillators = ["sin", "triangle", "saw", "square"]
+    
     grid.addRow("controller options", buttons)
     grid.addRow("tempo follow mode", tempoFollowMode, 1)
     grid.addRow("enable streaks", enableStreaks, 0)
-    grid.addRow("continuous label", continuousLabel, 1)
-    grid.addRow("slow note pitch", slowNotePitch, 2)
-    grid.addRow("slow note octave", slowNoteOctave, 4)
-    grid.addRow("slow note oscillator", slowNoteOscillators, 0)
-    grid.addRow("fast note pitch", fastNotePitch, 11)
-    grid.addRow("fast note octave", fastNoteOctave, 4)
-    grid.addRow("fast note oscillator", slowNoteOscillators, 0)
-    grid.addRow("tempo note pitch", tempoNotePitch, 3)
-    grid.addRow("tempo note octave", tempoNoteOctave, 4)
-    grid.addRow("tempo note oscillator", slowNoteOscillators, 0)
+    grid.addRow("continuous label", continuousLabel, 0)
+    grid.addRow("slow note pitch", slowNotePitch, 3)
+    grid.addRow("slow note octave", slowNoteOctave, 2)
+    grid.addRow("slow note oscillator", slowNoteOscillators, 1)
+    grid.addRow("fast note pitch", fastNotePitch, 7)
+    grid.addRow("fast note octave", fastNoteOctave, 2)
+    grid.addRow("fast note oscillator", slowNoteOscillators, 1)
+    grid.addRow("tempo note pitch", tempoNotePitch, 0)
+    grid.addRow("tempo note octave", tempoNoteOctave, 2)
+    grid.addRow("tempo note oscillator", slowNoteOscillators, 1)
+    grid.addRow("user input 1 pitch", userInput1Pitch, 10)
+    grid.addRow("user input 1 octave", userInput1Octave, 2) 
+    grid.addRow("user input 1 oscillator", userInput1Oscillators, 1)
+    grid.addRow("user input 2 pitch", userInput2Pitch, 2)
+    grid.addRow("user input 2 octave", userInput2Octave, 3) 
+    grid.addRow("user input 2 oscillator", userInput2Oscillators, 1)
+    
 
     def drawPreferencesGrid(canvas, x, y, screen):
         grid.drawGrid(canvas, x, y, screen)
