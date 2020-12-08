@@ -78,19 +78,19 @@ class MainApp(App):
         framesPerBuffer = 2**6 #samples per buffer
         channels = 1
         rate = 16000 #samples per second
-        dType = pyaudio.paFloat32 #for pyaudio
-        self.dtype = np.float32 #for numpy
-        self.maxAmplitude = 1 #paFloat32
+        dType = pyaudio.paInt16 #for pyaudio
+        self.dtype = np.int16 #for numpy
+        self.maxAmplitude = 32767 #paInt16
         self.timePerBuffer = framesPerBuffer/rate 
         #-------------------------------------------
 
         #------------------------------------------ initialize synth
-        wavetable = Synth.sin()
-        self.slowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]*144161)
-        self.fastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]*(143981)) #http://compoasso.free.fr/primelistweb/page/prime/liste_online_en.php
-        self.countSynth = Synth.Synthesizer(520*(6/15), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/30, wavetable[0]*143719)
-        self.userSlowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]*143609)
-        self.userFastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]*143509)
+        wavetable = Synth.triangle()
+        self.slowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12)
+        self.fastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12) #http://compoasso.free.fr/primelistweb/page/prime/liste_online_en.php
+        self.countSynth = Synth.Synthesizer(520*(6/15), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/30)
+        self.userSlowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12)
+        self.userFastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12)
         #------------------------------------------
 
         #https://people.csail.mit.edu/hubert/pyaudio/docs/ <---- learned to set up pyaudio streams primarily from this site
@@ -130,8 +130,7 @@ class MainApp(App):
         countSynthData = self.countSynth.getAudioData()
         userSlowSynthData = self.userSlowSynth.getAudioData()
         userFastSynthData = self.userFastSynth.getAudioData()
-        #data = countSynthData + userSlowSynthData + userFastSynthData
-        data = userSlowSynthData + userFastSynthData + countSynthData
+        data = countSynthData + userSlowSynthData + userFastSynthData
         if self.learnPolyrhythmScreen in self.currentScreens:
             greenDeactivated = ui.inverseRgbColorString(self.learnPolyrhythmScreen.eventControl["isMouseInsideGreenToggleBox"][1]) == (0, 50, 0)
             blueDeactivated =  ui.inverseRgbColorString(self.learnPolyrhythmScreen.eventControl["isMouseInsideBlueToggleBox"][1]) == (0, 0, 50)
@@ -140,13 +139,9 @@ class MainApp(App):
             if not blueDeactivated:
                 data += slowSynthData
         self.timeSinceStart += self.timePerBuffer
-        #if (time.time() - start) > self.timePerBuffer*3/4:
-            #print(time.time() - start)
-        #assert(time.time() - start < self.timePerBuffer)
-        for i in range(len(data)):
-            if data[i] > self.maxAmplitude or data[i] < -1*self.maxAmplitude:
-                if data[i] > 0: data[i] = self.maxAmplitude/2 
-                else: data[i] = -1*self.maxAmplitude/2
+        if (time.time() - start) > self.timePerBuffer*3/4:
+            print(time.time() - start)
+        assert(time.time() - start < self.timePerBuffer)
         return (data, pyaudio.paContinue)
         
     #there are a lot of things I need to do every sub pulse so organizing it this way just makes it cleaner
@@ -234,7 +229,6 @@ class MainApp(App):
             screen.doAnimationStep()
         if self.currentScreens[-1].currentAnimationState == "animateNormalPos":
             self.currentScreens = [self.currentScreens[-1]]
-        
         #update timers for the help boxes
         if self.learnPolyrhythmScreen in self.currentScreens:
             grid = self.preferencesScreen.eventControl["settings"]
@@ -242,6 +236,7 @@ class MainApp(App):
                 for box in self.learnPolyrhythmScreen.eventControl["helpBoxes"]:
                     if box[2]:
                         box[1] += self.timerDelay/24
+                        
         
     
     def mouseMoved(self, event):
@@ -511,7 +506,6 @@ class MainApp(App):
             self.userSlowSynth.createHit()
         elif key == self.preferencesScreen.eventControl["settings"].rows[0][2]:
             self.userFastSynth.createHit()
-        
     def handleUserDrumming(self, key):
         self.doUserInputSynth(key)
         if self.hasUserTappedNote: return
@@ -701,7 +695,3 @@ class MainApp(App):
 
 
 appRunner = MainApp(width = 800, height = 800, mvcCheck = False)
-
-
-
-
