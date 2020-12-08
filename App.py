@@ -61,6 +61,9 @@ class MainApp(App):
         self.initializeAudio()
         self.initializeVolumeBarParameters()
 
+       
+    
+
     
     def initializeVolumeBarParameters(self):
         self.faderSpeed = .9
@@ -74,7 +77,7 @@ class MainApp(App):
         #------------------------------------------- consts
         framesPerBuffer = 2**6 #samples per buffer
         channels = 1
-        rate = 32000 #samples per second
+        rate = 16000 #samples per second
         dType = pyaudio.paInt16 #for pyaudio
         self.dtype = np.int16 #for numpy
         self.maxAmplitude = 32767 #paInt16
@@ -83,11 +86,11 @@ class MainApp(App):
 
         #------------------------------------------ initialize synth
         wavetable = Synth.triangle()
-        self.slowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12)
-        self.fastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12)
-        self.countSynth = Synth.Synthesizer(520*(6/15), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/60)
-        self.userSlowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12)
-        self.userFastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12)
+        self.slowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]/144161)
+        self.fastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]/(143981)) #http://compoasso.free.fr/primelistweb/page/prime/liste_online_en.php
+        self.countSynth = Synth.Synthesizer(520*(6/15), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/30, wavetable[0]/143719)
+        self.userSlowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]/143609)
+        self.userFastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]/143509)
         #------------------------------------------
 
         #https://people.csail.mit.edu/hubert/pyaudio/docs/ <---- learned to set up pyaudio streams primarily from this site
@@ -98,8 +101,7 @@ class MainApp(App):
                 format = dType,
                 channels = channels,
                 rate = rate,
-                output = True,
-                frames_per_buffer = framesPerBuffer,
+                output = True,                frames_per_buffer = framesPerBuffer,
                 stream_callback = self.outputAudioStreamCallback
             )
         self.outputStream.start_stream()
@@ -136,6 +138,8 @@ class MainApp(App):
             if not blueDeactivated:
                 data += slowSynthData
         self.timeSinceStart += self.timePerBuffer
+        if (time.time() - start) > self.timePerBuffer*3/4:
+            print(time.time() - start)
         assert(time.time() - start < self.timePerBuffer)
         return (data, pyaudio.paContinue)
         
@@ -225,7 +229,16 @@ class MainApp(App):
             screen.doAnimationStep()
         if self.currentScreens[-1].currentAnimationState == "animateNormalPos":
             self.currentScreens = [self.currentScreens[-1]]
-
+        
+        #update timers for the help boxes
+        if self.learnPolyrhythmScreen in self.currentScreens:
+            grid = self.preferencesScreen.eventControl["settings"]
+            if grid.rows[-1][int(grid.selected[-1])] == "On":
+                for box in self.learnPolyrhythmScreen.eventControl["helpBoxes"]:
+                    if box[2]:
+                        box[1] += self.timerDelay/24
+        
+    
     def mouseMoved(self, event):
         if self.titleScreen in self.currentScreens and self.titleScreen.currentAnimationState == "animateNormalPos":
             if self.titleScreen.eventControl["isMouseInsideBeginBox"][0](event.x, event.y, self.titleScreen):
@@ -238,6 +251,15 @@ class MainApp(App):
             else:
                 self.promptUserScreen.eventControl["mouseInsideGoBox"][1] = "gold"
         if self.learnPolyrhythmScreen in self.currentScreens and self.learnPolyrhythmScreen.currentAnimationState in  ["animateNormalPos", "animatePolyrhythm"]:
+            
+            for box in self.learnPolyrhythmScreen.eventControl["helpBoxes"]:
+                if not box[0](event.x, event.y, self.learnPolyrhythmScreen): #if the mouse was not inside the box set the timer for that box to 0
+                    box[2] = False
+                else:
+                    box[2] = True
+                box[1] = 0
+
+            
             if self.learnPolyrhythmScreen.eventControl["isMouseInsidePlayButton"][0](event.x, event.y, self.learnPolyrhythmScreen):
                 self.learnPolyrhythmScreen.eventControl["isMouseInsidePlayButton"][1] = "limegreen"
             else:
@@ -295,6 +317,10 @@ class MainApp(App):
                         self.handleTempoChange() #this can also initialize tempo related variables
                         self.updateSettings()
         if self.learnPolyrhythmScreen in self.currentScreens:
+
+            for box in self.learnPolyrhythmScreen.eventControl["helpBoxes"]:
+                box[1] = 0 #don't show help screen if they are pressing mouse
+                
             if self.learnPolyrhythmScreen.eventControl["mouseInsideBackButton"][0](event.x, event.y, self.learnPolyrhythmScreen):
                 self.learnPolyrhythmScreen.currentAnimationState = "exitUp"
                 self.resetPolyrhythmAttributes() #reset everything polyrhythm related to prepare for a new rhythm
@@ -424,6 +450,8 @@ class MainApp(App):
                 self.handleTempoChange()
             if self.learnPolyrhythmScreen.currentAnimationState == "animatePolyrhythm" and event.key != "space":
                 self.handleUserDrumming(event.key)
+            else:
+                self.doUserInputSynth(event.key)
         if self.preferencesScreen in self.currentScreens and self.preferencesScreen.currentAnimationState == "animateNormalPos":
             if event.key != "space" and not event.key.isnumeric():
                 grid = self.preferencesScreen.eventControl["settings"]
@@ -473,14 +501,13 @@ class MainApp(App):
             self.engageDecreaseTempo = True
             self.rhythmIndexSinceLastActivatedTempoChange = self.rhythmIndex
         
-
-
-    def handleUserDrumming(self, key):
+    def doUserInputSynth(self, key):
         if key == self.preferencesScreen.eventControl["settings"].rows[0][1]:
             self.userSlowSynth.createHit()
         elif key == self.preferencesScreen.eventControl["settings"].rows[0][2]:
             self.userFastSynth.createHit()
-
+    def handleUserDrumming(self, key):
+        self.doUserInputSynth(key)
         if self.hasUserTappedNote: return
         self.learnPolyrhythmScreen.eventControl["selectorSqueezeSize"] = .75
         num1, num2 = self.getPolyrhythm()
@@ -650,20 +677,7 @@ class MainApp(App):
             #this is how we find the miniClick time
             self.timePerSubPulse = timePerSlowNote/num2
 
-            assert(self.timePerSubPulse > self.timePerBuffer) #if this isn't true we will have all kinds of problems
-        #we want the colorValue to flash and then return black by the next subpulse
-        #thus we want the time for it to go black again to be self.timePerSubPulse
-        #we have the recurrence relation on the color of the bg on a given frme by
-        # C_{f + 1} = kC_{f}, for some constant k
-        #let C_{0} = 255, then C_{n} = (k^n)(255)
-        #we want C to decrease by 255 after self.timePerSubPulse seconds have passed
-        #since each value of C happens at self.timePerBuffer seconds, we have
-        # C_{a} - C_{a + self.timePerSubPulse/self.timePerBuffer} = 255, where C_{a} = 255
-        #thus, k^{self.timePerSubPulse/self.timePerBuffer}(255) = 0
-        #this will never be exactly zero so we will use 1, so that k^{self.timePerSubPulse/self.timePerBuffer}(255) = 1
-        # implies k = (1/255)^{self.timePerSubPulse/self.timePerBuffer}
-        self.colorConstant = 1 - (240/255)**(self.timePerSubPulse/self.timePerBuffer)
-        
+            assert(self.timePerSubPulse > self.timePerBuffer) #if this isn't true we will have all kinds of problems 
     #---------------------------------------------------------------------------
 
 
