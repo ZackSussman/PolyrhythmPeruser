@@ -52,6 +52,65 @@ class ObjectToDraw:
     def drawObject(self, canvas, x, y, screen):
         self.drawFunction(canvas, x, y, screen)
 
+
+#used to create boxes that appear with text in them that display how to use different elements of the program
+class HelpTextBox(ObjectToDraw):
+
+    #amount of time user has to keep mouse steady over an object for a help box to appear
+    helpDisplayActivationTime = 1.5
+
+    #pointX and pointY is the coordinate of the part of the help box such that a small spike points there, this demonstrates which compoment the helper box is referring to
+    def __init__(self, defaultX, defaultY, topLeftX, topLeftY, bottomRightX, bottomRightY, text, index): #index is the position of this particular instance of the box helper in the box helper list
+        self.x = defaultX
+        self.y = defaultY
+        self.topLeftX = topLeftX
+        self.topLeftY = topLeftY
+        self.bottomRightY = bottomRightY
+        self.bottomRightX = bottomRightX
+        self.text = text
+        self.createDrawFunction()
+        self.index = index
+    
+    def createDrawFunction(self):    
+        def drawHelpTextBox(canvas, x, y, screen):
+            if screen.currentAnimationState != "animateNormalPos":
+                screen.eventControl["helpBoxes"][self.index][1] = 0
+                return
+            if screen.eventControl["helpBoxes"][self.index][1] < HelpTextBox.helpDisplayActivationTime:
+                return
+            charactersPer80Pixels = 12
+            eightyPixelsPerLine = (self.bottomRightX - self.topLeftX)/(80)
+            charactersPerLine = int(charactersPer80Pixels*eightyPixelsPerLine) - 1 #safety measure to ensure characters don't clip at the edges
+            textsToMake = []
+            start = 0
+            while start < len(self.text):
+                charactersPerLine = int(charactersPer80Pixels*eightyPixelsPerLine)
+                if start + charactersPerLine >= len(self.text):
+                    charactersPerLine = len(self.text) - start
+                consideredText = self.text[start:start + charactersPerLine]
+                if consideredText == "":
+                    break
+                if start + charactersPerLine == len(self.text): #end case
+                    textsToMake.append(consideredText)
+                    break
+                while consideredText[-1] != " " and self.text[start + charactersPerLine] != " ":
+                    consideredText = consideredText[:-1]
+                    charactersPerLine -= 1
+                    if consideredText == "":
+                        break
+                textsToMake.append(consideredText)
+                start += charactersPerLine
+            canvas.create_rectangle(self.topLeftX + x, self.topLeftY + y, self.bottomRightX + x, self.bottomRightY + y, fill = "white")
+            margin = (self.bottomRightY - self.topLeftY)/5
+            textHeight = ((self.bottomRightY - self.topLeftY - 2*margin)/(len(textsToMake))) #not zero
+            y = self.topLeftY + 1.5*margin
+            for line in textsToMake:
+                canvas.create_text((self.topLeftX + x + self.bottomRightX)/2, y, text = line, font = "Arial 16")
+                y += textHeight
+        self.drawFunction = drawHelpTextBox
+
+
+
 #a particular screen in my program
 #this just makes everything more organized
 #make sure you pass in the objects to draw in the order you want them drawn
@@ -308,6 +367,8 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
         if y < screen.topLeftY + initialY - halfHeight or y > screen.topLeftY + initialY + halfHeight:
             return False
         return True
+    
+    playButtonHelper = HelpTextBox(0, 0, appWidth/10, 2*appHeight/3, 9*appWidth/10,  appHeight*(5/6 + 1)/2 - (appHeight/17)/2 - appHeight/10, "Use the keys t and n to play along with the green and blue dots! You can use the space bar or press the play button to start it. The cursor will glow brighter the more accurate you are. Explore the settings to change the pitches of the notes as well as the keys you use to play.", 1)
 
     def drawBlueToggleBox(canvas, x, y, screen):
         topMargin = appHeight/30
@@ -347,9 +408,7 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
         yCond = y > topMargin and y < topMargin + sideLength
         return xCond and yCond
 
-    def drawRotateButton(canvas, x, y, screen):
-        pass
-
+    blueGreenTextBoxHelper = HelpTextBox(0, 0, appWidth/2, appHeight/30 + appWidth/20, appWidth - (appWidth/10 + 1.5*appWidth/20), appHeight/30 + 4*appWidth/20 ,"Use the green and blue buttons to toggle whether or note you see, hear and play, the green pulses or blue pulses respectively!", 3)
 
     def drawBlackTriangle(canvas, x, y, screen):
         if screen.currentAnimationState == "animatePolyrhythm":
@@ -511,6 +570,8 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
                 return y < (tailHeight/halfHeadWidth)*(x - (appWidth - rightMargin - halfHeadWidth)) + appHeight - topMargin
             else: #bound by a line y =  -(tailHeight/halfHeadWidth)(x - (appWidth - rightMargin - halfHeadWidth)) + appHeight - topMargin
                 return y < -(tailHeight/halfHeadWidth)*(x - (appWidth - rightMargin - halfHeadWidth)) + appHeight - topMargin
+    
+    backButtonHelper = HelpTextBox(0, 0, appWidth - appWidth/50 - appWidth/3, appHeight - appHeight/20 - appHeight/6,appWidth -  appWidth/50 , appHeight - appHeight/20 , "Use this button to go back and change the polyrhythm under study.", 4)
 
 
     def drawBackButton(canvas, x, y, screen):
@@ -619,6 +680,8 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
         if x > leftMargin and x < leftMargin + boxLength and y > appHeight - boxHeight - bottomMargin and y < appHeight - bottomMargin:
             return True
         return False
+    
+    tempoButtonHelper = HelpTextBox(0, 0, appWidth/20, appHeight*2/3, 4*appWidth/7, appHeight - appWidth/9 - appHeight/18, "Click in this box and type the desired quarter note pulse, which is the amount of time it takes the dot to move one row! Also explore the automated tempo mode in the app settings.", 2)
 
     #for all animations to use in this screen
     def updateVolumeBarHeight(screen):
@@ -654,6 +717,10 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
                                 fill = screen.eventControl["isMouseInsideTapTempoBox"][1], outline = "black")
     drawTapTempoObject = ObjectToDraw(0, 0, drawTapTempoBox)
 
+
+    tapTempoHelper = HelpTextBox(0 , 0, appWidth/30, appHeight/25, appWidth/30 + 3*appWidth/10, appHeight/25 + 2*appWidth/15, "Repeatedly tap what you wish to be the quarter note, which is however long it takes the dot to move one row!", 0)
+
+
     def isMouseInsideTapTempoBox(x, y, screen):
         leftMargin = appWidth/30
         upMargin = appHeight/25
@@ -674,13 +741,19 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
     dotColorsForAccuracy = defaultDotColors + []
 
     playedPositions = [] #contains tuples of (row, col, xMoveOver)
+    
+    def greenOrBlueToggleBox(x, y, screen):
+        return isMouseInsideGreenToggleBox(x, y, screen) or isMouseInsideBlueToggleBox(x, y, screen)
 
-    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0], "dotColors": defaultDotColors, "dotColorsForAccuracy":dotColorsForAccuracy, "selectorSqueezeSize":1, "mouseInsideBackButton":[isMouseInsideBackButton,"darkred"], "gearRotationAnimation":[0, False, isMouseOverSettingsButton], "streak":0, "bestStreak":0, "drawStreaks":False, "isMouseInsideTapTempoBox":[isMouseInsideTapTempoBox, "yellow"], "isMouseInsideBlueToggleBox":[isMouseInsideBlueToggleBox, rgbColorString(0, 0, 180)], "isMouseInsideGreenToggleBox":[isMouseInsideGreenToggleBox, rgbColorString(0, 180, 0)], "dotPositionFractionalPart":0, "playedPositions":playedPositions, "bgColor":rgbColorString(0, 0, 0)}
+    #helpBoxes has three things per help box, the function that checks for mouse position, the time the mouse has satisfied that function, and whether or not the mouse has last satisfied that function
+    helpBoxes = [[isMouseInsideTapTempoBox, 0, False], [isMouseInsidePlayButton, 0, False], [mouseInsideTempoBox, 0, False], [greenOrBlueToggleBox, 0, False], [isMouseInsideBackButton, 0, False]]
+
+    eventControl = {"isMouseInsidePlayButton":[isMouseInsidePlayButton, "green"], "currentDotSelector":0, "mouseInsideTempoBox":[mouseInsideTempoBox, "black"], "typedInsideTempoBox":[None, "120"], "animateStepActive":False, "getVolumeHeight":[0, 0], "dotColors": defaultDotColors, "dotColorsForAccuracy":dotColorsForAccuracy, "selectorSqueezeSize":1, "mouseInsideBackButton":[isMouseInsideBackButton,"darkred"], "gearRotationAnimation":[0, False, isMouseOverSettingsButton], "streak":0, "bestStreak":0, "drawStreaks":False, "isMouseInsideTapTempoBox":[isMouseInsideTapTempoBox, "yellow"], "isMouseInsideBlueToggleBox":[isMouseInsideBlueToggleBox, rgbColorString(0, 0, 180)], "isMouseInsideGreenToggleBox":[isMouseInsideGreenToggleBox, rgbColorString(0, 180, 0)], "dotPositionFractionalPart":0, "playedPositions":playedPositions, "bgColor":rgbColorString(0, 0, 0), "helpBoxes":helpBoxes}
     
 
     animationState = {"enterDown":animateEnterDown, "animateNormalPos":animateNormalPos, "animatePolyrhythm":animatePolyrhythm, "exitUp":animateExitUp}
 
-    drawingObjects = [drawBgColorObject, drawNoteGridObject, drawPlayButtonObject, drawBlackTriangleObject, drawBlackSquareObject, drawTempoTextBoxObject, drawVolumeBarObject, drawBackButtonObject, settingsObject, drawStreakCountObject, drawTapTempoObject, drawGreenToggleBoxObj, drawBlueToggleBoxObj]
+    drawingObjects = [drawBgColorObject, drawNoteGridObject, drawPlayButtonObject, drawBlackTriangleObject, drawBlackSquareObject, drawTempoTextBoxObject, drawVolumeBarObject, drawBackButtonObject, settingsObject, drawStreakCountObject, drawTapTempoObject, drawGreenToggleBoxObj, drawBlueToggleBoxObj, tapTempoHelper, playButtonHelper, tempoButtonHelper, blueGreenTextBoxHelper, backButtonHelper]
 
 
 
@@ -854,6 +927,7 @@ def getSettingsScreen(appWidth, appHeight):
     grid.addRow("user input 2 pitch", userInput2Pitch, 2)
     grid.addRow("user input 2 octave", userInput2Octave, 3) 
     grid.addRow("user input 2 oscillator", userInput2Oscillators, 1)
+    grid.addRow("hover for instructions", ["On", "Off"], 0)
     
 
     def drawPreferencesGrid(canvas, x, y, screen):
@@ -884,3 +958,5 @@ def getSettingsScreen(appWidth, appHeight):
     screen = Screen("Settings Screen",[bgDrawObject, drawApplyButtonObject, drawPreferencesTitleObject, drawPreferencesGridObject], "enterDown", animationState, eventControl, 0, appHeight)
 
     return screen
+
+
