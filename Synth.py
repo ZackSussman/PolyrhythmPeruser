@@ -9,7 +9,7 @@ def normalize(data, desiredMax):
 def sin():
     period = 2*np.pi
     def func(x):
-        return np.sin(x)
+        return np.sin(x, dtype = np.float32)
     return (period, func)
 
 def saw():
@@ -38,10 +38,10 @@ def triangle():
 class Synthesizer():
     #waveTable is a function which will be used to get the audio values
     #waveTable is a tuple, first coordinate is the period of the wavetable, second is the actual function that is periodic
-    def __init__(self, frequency, sampleRate, waveTable, bufferSize, dtype, maxAmplitude):
+    def __init__(self, frequency, sampleRate, waveTable, bufferSize, dtype, maxAmplitude, phase = 0):
         self.sampleRate = sampleRate
         self.dtype = dtype
-        self.waveTablePeriod, self.waveTable = waveTable
+        self.waveTablePeriod, self.waveTable = waveTable[0], waveTable[1]
         self.bufferSize = bufferSize
         self.maxAmplitude = maxAmplitude
         self.bufferNum = 0
@@ -49,14 +49,17 @@ class Synthesizer():
         self.noteOn = False
         self.amplitudeControlCoef = 1
         self.frequency = frequency
+        self.phase = phase #if you are adding a bunch of similar waveforms you can change the phase of them to make them sum more nicely
 
 
     def changeFrequency(self, freq):
         self.frequency = freq
     
     def setWavetable(self, period, wavetable):
+        phaseValue = self.waveTablePeriod/self.phase
         self.waveTablePeriod = period
         self.waveTable = wavetable
+        self.phase = self.waveTablePeriod/phaseValue
 
     #use for a short percussive sound
     def createHit(self):
@@ -77,7 +80,7 @@ class Synthesizer():
         secondsPerBuffer = self.bufferSize/self.sampleRate
         cyclesPerBuffer = self.frequency * secondsPerBuffer
         inputCoef = cyclesPerBuffer*self.waveTablePeriod/(self.bufferSize-1)
-        audioData = np.fromiter([self.maxAmplitude * self.waveTable(inputCoef*(self.bufferSize*self.bufferNum + x)) for x in range(self.bufferSize)], dtype = self.dtype)
+        audioData = np.fromiter([self.maxAmplitude * self.waveTable(inputCoef*(self.bufferSize*self.bufferNum + x) + self.phase) for x in range(self.bufferSize)], dtype = self.dtype)
         self.bufferNum += 1
         if self.fadingIn:
             for i in range(len(audioData)):
@@ -95,3 +98,10 @@ class Synthesizer():
         return audioData
 
 
+    def getSinWav(self):
+        secondsPerBuffer = self.bufferSize/self.sampleRate
+        cyclesPerBuffer = self.frequency * secondsPerBuffer
+        inputCoef = cyclesPerBuffer*self.waveTablePeriod/(self.bufferSize-1)
+        audioData = np.fromiter([self.maxAmplitude * self.waveTable(inputCoef*(self.bufferSize*self.bufferNum + x) + self.phase) for x in range(self.bufferSize)], dtype = self.dtype)
+        self.bufferNum += 1
+        return audioData
