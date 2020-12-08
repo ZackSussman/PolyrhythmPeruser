@@ -80,7 +80,7 @@ class MainApp(App):
         rate = 16000 #samples per second
         dType = pyaudio.paInt16 #for pyaudio
         self.dtype = np.int16 #for numpy
-        self.maxAmplitude = 32767 #paInt16
+        self.maxAmplitude =32767 #paInt16
         self.timePerBuffer = framesPerBuffer/rate 
         #-------------------------------------------
 
@@ -139,9 +139,12 @@ class MainApp(App):
             if not blueDeactivated:
                 data += slowSynthData
         self.timeSinceStart += self.timePerBuffer
-        if (time.time() - start) > self.timePerBuffer*3/4:
-            print(time.time() - start)
-        assert(time.time() - start < self.timePerBuffer)
+        '''
+        for i in range(len(data)):
+            if data[i] > self.maxAmplitude or data[i] < -1*self.maxAmplitude:
+                if data[i] > 0: data[i] = self.maxAmplitude/2 
+                else: data[i] = -1*self.maxAmplitude/2
+        '''
         return (data, pyaudio.paContinue)
         
     #there are a lot of things I need to do every sub pulse so organizing it this way just makes it cleaner
