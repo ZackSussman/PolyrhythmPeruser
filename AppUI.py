@@ -83,7 +83,7 @@ class HelpTextBox(ObjectToDraw):
             charactersPerLine = int(charactersPer80Pixels*eightyPixelsPerLine) - 1 #safety measure to ensure characters don't clip at the edges
             textsToMake = []
             start = 0
-            while start < len(self.text):
+            while start < len(self.text): #split the text into lines that will look good when drawn separately throughout the box
                 charactersPerLine = int(charactersPer80Pixels*eightyPixelsPerLine)
                 if start + charactersPerLine >= len(self.text):
                     charactersPerLine = len(self.text) - start
@@ -524,6 +524,8 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
             played = screen.eventControl["playedPositions"][i]
             drawMarker(canvas, x, y, screen, gridSize, xShift, yShift, played[0], played[1], played[2], rgbColorString(played[3][0], played[3][1], played[3][2]))
             played[3] = (int(.9*played[3][0]), int(.9*played[3][1]), int(.9*played[3][2]))
+            if i >= len(screen.eventControl["playedPositions"]):
+                break
             screen.eventControl["playedPositions"][i] = played
             if .9*played[3][0] < 20:
                 screen.eventControl["playedPositions"].pop(i)
