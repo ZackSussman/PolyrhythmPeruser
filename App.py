@@ -86,11 +86,11 @@ class MainApp(App):
 
         #------------------------------------------ initialize synth
         wavetable = Synth.sin()
-        self.slowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]/144161)
-        self.fastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]/(143981)) #http://compoasso.free.fr/primelistweb/page/prime/liste_online_en.php
-        self.countSynth = Synth.Synthesizer(520*(6/15), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/30, wavetable[0]/143719)
-        self.userSlowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]/143609)
-        self.userFastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]/143509)
+        self.slowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]*144161)
+        self.fastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]*(143981)) #http://compoasso.free.fr/primelistweb/page/prime/liste_online_en.php
+        self.countSynth = Synth.Synthesizer(520*(6/15), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/30, wavetable[0]*143719)
+        self.userSlowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]*143609)
+        self.userFastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]*143509)
         #------------------------------------------
 
         #https://people.csail.mit.edu/hubert/pyaudio/docs/ <---- learned to set up pyaudio streams primarily from this site
@@ -260,9 +260,9 @@ class MainApp(App):
             for box in self.learnPolyrhythmScreen.eventControl["helpBoxes"]:
                 if not box[0](event.x, event.y, self.learnPolyrhythmScreen): #if the mouse was not inside the box set the timer for that box to 0
                     box[2] = False
+                    box[1] = 0
                 else:
                     box[2] = True
-                box[1] = 0
 
             
             if self.learnPolyrhythmScreen.eventControl["isMouseInsidePlayButton"][0](event.x, event.y, self.learnPolyrhythmScreen):
