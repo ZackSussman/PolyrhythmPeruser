@@ -502,7 +502,7 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
                 fill = color, outline = "black")
 
                 moveOverBy = screen.eventControl["dotPositionFractionalPart"]
-                assert(moveOverBy < 1)
+                #assert(moveOverBy < 1)
                 #move over by is fractional relative to the gridSize
                 changeInX = gridSize*moveOverBy
                 brightness = getAverageBrightness(screen.eventControl["dotColors"])/255
@@ -764,6 +764,7 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
 
 
 
+
 def getSettingsScreen(appWidth, appHeight):
     
     def drawBackground(canvas, x, y, screen):
@@ -792,6 +793,30 @@ def getSettingsScreen(appWidth, appHeight):
         canvas.create_text(x + appWidth/2, y + upMargin, text = "Preferences", font = "Arial 32 bold", fill = "white")
     drawPreferencesTitleObject = ObjectToDraw(0, 0, drawPreferencesTitle)    
     
+
+    class Slider:
+        def __init__(self, minimum, maximum, defaultVal):
+            self.min = minimum
+            self.max = maximum
+            self.dotX = defaultVal #proportion
+            self.value = defaultVal #val
+            self.ovalRadius = appWidth/120
+            self.overrideDotX = False #upon initialization we compute it this way but the override means the mouse dragging will directly set the dotX
+        
+        def drawSlider(self, canvas, start, stop, hardMax, hardMin): #slider cannot go past the hardMax and hardMin
+            if not self.overrideDotX:
+                dotPos = (self.dotX*(stop[0] - start[0]) + start[0] , start[1]) #kinda dumb but we are assuming a constant y value 
+            else:
+                if self.dotX < hardMin: self.dotX = hardMin
+                if self.dotX > hardMax: self.dotX = hardMax
+                dotPos = (self.dotX, start[1])
+                self.value = ((self.dotX - start[0])/(stop[0] - start[0]))*(self.max - self.min) + self.min
+            canvas.create_line(start[0], start[1], stop[0], stop[1], fill = "gold", width = appWidth/160)
+            canvas.create_line(start[0], start[1], dotPos[0], dotPos[1], fill = "white", width = appWidth/160)
+            canvas.create_oval(dotPos[0] - self.ovalRadius, dotPos[1] - self.ovalRadius,
+                                dotPos[0] + self.ovalRadius, dotPos[1] + self.ovalRadius, fill = "gold", outline = "black")
+            
+
     #it's too painful to not write it this way
     class PreferencesGrid:
         def __init__(self):
@@ -805,6 +830,8 @@ def getSettingsScreen(appWidth, appHeight):
             #-------------- these are both updated via App.py 
             self.selected = [] #a 1d list, each entry represents one row of self.rows, and is the index of the one which should be highlighted, (displaying the current option that is enabled)
             self.hovered = [] #just two numbers, the row and col of the box the user has their mouse over. 
+
+            self.sliders = [] #store the slider instances
 
         #here is a tricky method to write
         #given the mouse position, return the row and index of self.rows of the box the mouse is inside!
@@ -826,14 +853,21 @@ def getSettingsScreen(appWidth, appHeight):
 
 
         #a row consits of a text describing what the options change, and then the list of the text of the various options
-        def addRow(self, descriptionText, options, currentSelected = None):
-            assert(currentSelected == None or type(currentSelected) == int)
-            self.rows.append([descriptionText] + options)
-            if currentSelected == None: #currentSelected is None upon initialization of a row if and only if that row is a user input row
-                self.selected.append(currentSelected)
-                self.userInputRows.append(len(self.rows) - 1)
-            else:
-                self.selected.append(currentSelected + 1) #+1 because the index is relative to our new array which has the name appended at the beginning
+        def addRow(self, descriptionText, options, currentSelected = None, slider = None):
+            #assert(currentSelected == None or type(currentSelected) == int)
+
+            if slider == None:
+                self.rows.append([descriptionText] + options)
+                if currentSelected == None: #currentSelected is None upon initialization of a row if and only if that row is a user input row
+                    self.selected.append(currentSelected)
+                    self.userInputRows.append(len(self.rows) - 1)
+                else:
+                    self.selected.append(currentSelected + 1) #+1 because the index is relative to our new array which has the name appended at the beginning
+            else: #then slider is a Slider instance
+                self.rows.append([descriptionText, ""]) #use "" to signal that we have a slider to place
+                self.sliders.append(slider)
+                self.selected.append(None)
+
 
         def drawGrid(self, canvas, xOffset, yOffset, screen):
             if len(self.rows) == 0:
@@ -844,7 +878,7 @@ def getSettingsScreen(appWidth, appHeight):
             totalGridLength = appWidth - 2*self.sideMargin
             titleWidth = totalGridLength/5
             saveY = y
-
+            sliderIndex = 0
             selectedIndex = 0
             for row in self.rows:
                 if len(row) == 0:
@@ -857,7 +891,19 @@ def getSettingsScreen(appWidth, appHeight):
                     fillColor = "black"
                     textColor = "white"
                     outlineColor = "white"
-                    if self.selected[selectedIndex] == entryIndex:
+                    if entry == "": #slider!
+                        slider = self.sliders[sliderIndex]
+                        sliderY = y + deltaY/2
+                        startX = x + deltaX/10
+                        stopX = x + 9*deltaX/10 
+                        canvas.create_rectangle(x, y, x + deltaX, y + deltaY, outline = "white", fill = "black")
+                        slider.drawSlider(canvas, [startX, sliderY], [stopX, sliderY], stopX, startX)
+                        canvas.create_text((stopX + x + deltaX)/2, sliderY, text = str(slider.max), font = "arial 12", fill = "white")
+                        canvas.create_text((x + deltaX/20), sliderY, text = str(slider.min), font = "arial 12", fill = "white")
+                        sliderIndex += 1
+                        entryIndex += 1
+                        continue
+                    elif self.selected[selectedIndex] == entryIndex:
                         fillColor = "gold"
                         textColor = "black"
                     userInputData = screen.eventControl["justClickedInUserInput"]
@@ -867,7 +913,7 @@ def getSettingsScreen(appWidth, appHeight):
                         canvas.create_rectangle(x, y, x + deltaX, y + deltaY, outline = outlineColor, fill = fillColor)
                         canvas.create_text(x + deltaX/2, y + deltaY/2, text = entry, fill = textColor)
                         x += deltaX
-                    else:
+                    elif entry != "": #not slider
                         canvas.create_rectangle(x, y, x + titleWidth, y + deltaY, outline = outlineColor, fill = fillColor)
                         canvas.create_text(x + titleWidth/2, y + deltaY/2, text = entry, fill = textColor)
                         x += titleWidth
@@ -914,15 +960,15 @@ def getSettingsScreen(appWidth, appHeight):
     grid.addRow("tempo follow mode", tempoFollowMode, 1)
     grid.addRow("enable streaks", enableStreaks, 0)
     grid.addRow("continuous label", continuousLabel, 0)
-    grid.addRow("slow note pitch", slowNotePitch, 3)
-    grid.addRow("slow note octave", slowNoteOctave, 2)
-    grid.addRow("slow note oscillator", slowNoteOscillators, 1)
-    grid.addRow("fast note pitch", fastNotePitch, 7)
-    grid.addRow("fast note octave", fastNoteOctave, 2)
-    grid.addRow("fast note oscillator", slowNoteOscillators, 1)
-    grid.addRow("tempo note pitch", tempoNotePitch, 0)
-    grid.addRow("tempo note octave", tempoNoteOctave, 2)
-    grid.addRow("tempo note oscillator", slowNoteOscillators, 1)
+    grid.addRow("blue note pitch", slowNotePitch, 3)
+    grid.addRow("blue note octave", slowNoteOctave, 2)
+    grid.addRow("blue note oscillator", slowNoteOscillators, 1)
+    grid.addRow("green note pitch", fastNotePitch, 7)
+    grid.addRow("green note octave", fastNoteOctave, 2)
+    grid.addRow("green note oscillator", slowNoteOscillators, 1)
+    grid.addRow("red note pitch", tempoNotePitch, 0)
+    grid.addRow("red note octave", tempoNoteOctave, 2)
+    grid.addRow("red note oscillator", slowNoteOscillators, 1)
     grid.addRow("user input 1 pitch", userInput1Pitch, 10)
     grid.addRow("user input 1 octave", userInput1Octave, 2) 
     grid.addRow("user input 1 oscillator", userInput1Oscillators, 1)
@@ -930,6 +976,11 @@ def getSettingsScreen(appWidth, appHeight):
     grid.addRow("user input 2 octave", userInput2Octave, 3) 
     grid.addRow("user input 2 oscillator", userInput2Oscillators, 1)
     grid.addRow("hover for instructions", ["On", "Off"], 0)
+    grid.addRow("green note volume", None, None, Slider(0, 1, 1))
+    grid.addRow("blue note volume",None, None, Slider(0, 1, 1))
+    grid.addRow("red note volume", None, None, Slider(0, 1, 1))
+    grid.addRow("user input 1 volume", None, None, Slider(0, 1, 1))
+    grid.addRow("user input 2 volume", None, None, Slider(0, 1, 1))
     
 
     def drawPreferencesGrid(canvas, x, y, screen):
