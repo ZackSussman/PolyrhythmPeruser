@@ -487,13 +487,15 @@ def getLearnPolyrhythmScreen(appWidth, appHeight, num1, num2):
                 jumpIn = gridSize*7/10
 
                 color = screen.eventControl["dotColors"][num2*row + col]
+                #greenDeactivated and blueDeactivated are True only if the current dot NORMALLY would be colored that respective color, but shouldn't be on this pass
                 greenDeactivated = inverseRgbColorString(color)[1] != 0 and inverseRgbColorString(screen.eventControl["isMouseInsideGreenToggleBox"][1]) == (0, 50, 0)
                 blueDeactivated = inverseRgbColorString(color)[2] != 0 and inverseRgbColorString(screen.eventControl["isMouseInsideBlueToggleBox"][1]) == (0, 0, 50)
-                if ((greenDeactivated or blueDeactivated) and not ((row, col) == (0, 0))) or (greenDeactivated and blueDeactivated):
+                needBothDots = ((num2*row + col) % num1 == 0) and ((num2*row + col)%num2 == 0)
+                if ((greenDeactivated or blueDeactivated) and not (needBothDots)) or (greenDeactivated and blueDeactivated):
                     color = rgbColorString(140, 0, 0)
-                if (row, col) == (0, 0) and (not blueDeactivated) and greenDeactivated:
+                if (needBothDots) and not blueDeactivated and greenDeactivated:
                     color = rgbColorString(0, 0, inverseRgbColorString(screen.eventControl["dotColors"][num2*row + col])[2])
-                elif (row, col) == (0, 0) and (not greenDeactivated) and blueDeactivated:
+                elif needBothDots and (not greenDeactivated) and blueDeactivated:
                     color = rgbColorString(0, inverseRgbColorString(screen.eventControl["dotColors"][num2*row + col])[1], 0)
                 screen.eventControl["dotColorsForAccuracy"][num2*row + col] = color
                 canvas.create_oval(xCoord + jumpIn, yCoord + jumpIn, xCoord + gridSize - jumpIn, yCoord + gridSize - jumpIn,
