@@ -87,7 +87,7 @@ class MainApp(App):
         #------------------------------------------ initialize synth
         wavetable = Synth.triangle()
         self.slowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12)
-        self.fastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12) #http://compoasso.free.fr/primelistweb/page/prime/liste_online_en.php
+        self.fastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12)
         self.countSynth = Synth.Synthesizer(520*(6/15), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/30)
         self.userSlowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12)
         self.userFastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12)
@@ -139,12 +139,6 @@ class MainApp(App):
             if not blueDeactivated:
                 data += slowSynthData
         self.timeSinceStart += self.timePerBuffer
-        '''
-        for i in range(len(data)):
-            if data[i] > self.maxAmplitude or data[i] < -1*self.maxAmplitude:
-                if data[i] > 0: data[i] = self.maxAmplitude/2 
-                else: data[i] = -1*self.maxAmplitude/2
-        '''
         return (data, pyaudio.paContinue)
         
     #there are a lot of things I need to do every sub pulse so organizing it this way just makes it cleaner
@@ -300,6 +294,7 @@ class MainApp(App):
             if grid.hovered != [] and grid.hovered[0] >= 20: #sliders
                 grid.sliders[grid.hovered[0] - 20].dotX = event.x
                 grid.sliders[grid.hovered[0] - 20].overrideDotX = True
+                self.updateSettings()
 
     def mousePressed(self, event):
         if self.titleScreen in self.currentScreens and self.titleScreen.currentAnimationState == "animateNormalPos":
@@ -372,8 +367,10 @@ class MainApp(App):
             if result != None:
                 if grid.selected[result[0]] != None:
                     grid.selected[result[0]] = result[1] + 1
+                    self.updateSettings()
             if result != None and result[0] in grid.userInputRows:
                 self.preferencesScreen.eventControl["justClickedInUserInput"] = [result[0], result[1]]
+                self.updateSettings()
             else:
                 self.preferencesScreen.eventControl["justClickedInUserInput"] = None
             if self.preferencesScreen.eventControl["applyButtonInfo"][0](event.x, event.y, self.preferencesScreen):
@@ -381,7 +378,7 @@ class MainApp(App):
                 self.currentScreens.append(self.learnPolyrhythmScreen)
                 self.learnPolyrhythmScreen.currentAnimationState = "enterDown"
                 self.resetPolyrhythmAttributes()
-                self.updateSettings()
+            
     
     def mouseReleased(self, event):
         if self.learnPolyrhythmScreen in self.currentScreens:
@@ -463,11 +460,13 @@ class MainApp(App):
             else:
                 self.doUserInputSynth(event.key)
         if self.preferencesScreen in self.currentScreens and self.preferencesScreen.currentAnimationState == "animateNormalPos":
+            self.doUserInputSynth(event.key)
             if event.key != "space" and not event.key.isnumeric():
                 grid = self.preferencesScreen.eventControl["settings"]
                 clickData = self.preferencesScreen.eventControl["justClickedInUserInput"]
                 if clickData != None:
                     grid.rows[int(clickData[0])][int(clickData[1] + 1)] = event.key.lower()
+                    self.updateSettings()
     
     #simply test to see if it is time to reset the state of whether the user tried to press the note
     def testForSwitchoverToNewNote(self):
