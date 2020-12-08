@@ -651,7 +651,7 @@ class MainApp(App):
         userFastSynthWavetable = self.convertOscillatorStringToOscillator(grid.rows[rowIndexOfFirstNoteSetting + 14][int(grid.selected[rowIndexOfFirstNoteSetting + 14])])
         self.userFastSynth.setWavetable(userFastSynthWavetable[0], userFastSynthWavetable[1])
         
-        synthsToUpdateVolume = [self.fastSynth, self.slowSynth, self.countSynth, self.userFastSynth, self.userSlowSynth]
+        synthsToUpdateVolume = [self.fastSynth, self.slowSynth, self.countSynth,self.userSlowSynth, self.userFastSynth]
 
         for x in range(len(synthsToUpdateVolume)):
             volume = (self.maxAmplitude/5)*self.preferencesScreen.eventControl["settings"].sliders[x].value
