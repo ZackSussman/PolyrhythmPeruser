@@ -78,14 +78,14 @@ class MainApp(App):
         framesPerBuffer = 2**6 #samples per buffer
         channels = 1
         rate = 16000 #samples per second
-        dType = pyaudio.paInt16 #for pyaudio
-        self.dtype = np.int16 #for numpy
-        self.maxAmplitude = 32767 #paInt16
+        dType = pyaudio.paFloat32 #for pyaudio
+        self.dtype = np.float32 #for numpy
+        self.maxAmplitude = 1 #paFloat32
         self.timePerBuffer = framesPerBuffer/rate 
         #-------------------------------------------
 
         #------------------------------------------ initialize synth
-        wavetable = Synth.triangle()
+        wavetable = Synth.sin()
         self.slowSynth = Synth.Synthesizer(520, rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]/144161)
         self.fastSynth = Synth.Synthesizer(520*(3/2), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/12, wavetable[0]/(143981)) #http://compoasso.free.fr/primelistweb/page/prime/liste_online_en.php
         self.countSynth = Synth.Synthesizer(520*(6/15), rate, (wavetable[0], wavetable[1]), framesPerBuffer, self.dtype, self.maxAmplitude/30, wavetable[0]/143719)
@@ -124,12 +124,14 @@ class MainApp(App):
             self.tapTempoTimer = 0
         else:
             self.tapTempoTimer += self.timePerBuffer
+        self.handleAnimationEvents()
         slowSynthData = self.slowSynth.getAudioData()
         fastSynthData = self.fastSynth.getAudioData()
         countSynthData = self.countSynth.getAudioData()
         userSlowSynthData = self.userSlowSynth.getAudioData()
         userFastSynthData = self.userFastSynth.getAudioData()
-        data = countSynthData + userSlowSynthData + userFastSynthData
+        #data = countSynthData + userSlowSynthData + userFastSynthData
+        data = userSlowSynthData + userFastSynthData + countSynthData
         if self.learnPolyrhythmScreen in self.currentScreens:
             greenDeactivated = ui.inverseRgbColorString(self.learnPolyrhythmScreen.eventControl["isMouseInsideGreenToggleBox"][1]) == (0, 50, 0)
             blueDeactivated =  ui.inverseRgbColorString(self.learnPolyrhythmScreen.eventControl["isMouseInsideBlueToggleBox"][1]) == (0, 0, 50)
@@ -138,9 +140,13 @@ class MainApp(App):
             if not blueDeactivated:
                 data += slowSynthData
         self.timeSinceStart += self.timePerBuffer
-        if (time.time() - start) > self.timePerBuffer*3/4:
-            print(time.time() - start)
-        assert(time.time() - start < self.timePerBuffer)
+        #if (time.time() - start) > self.timePerBuffer*3/4:
+            #print(time.time() - start)
+        #assert(time.time() - start < self.timePerBuffer)
+        for i in range(len(data)):
+            if data[i] > self.maxAmplitude or data[i] < -1*self.maxAmplitude:
+                if data[i] > 0: data[i] = self.maxAmplitude/2 
+                else: data[i] = -1*self.maxAmplitude/2
         return (data, pyaudio.paContinue)
         
     #there are a lot of things I need to do every sub pulse so organizing it this way just makes it cleaner
@@ -224,7 +230,6 @@ class MainApp(App):
                 self.hasUserTappedNote = False
                 self.justDetectedAMiddlePoint = False
     def timerFired(self):
-        self.handleAnimationEvents()
         for screen in self.currentScreens:
             screen.doAnimationStep()
         if self.currentScreens[-1].currentAnimationState == "animateNormalPos":
@@ -506,6 +511,7 @@ class MainApp(App):
             self.userSlowSynth.createHit()
         elif key == self.preferencesScreen.eventControl["settings"].rows[0][2]:
             self.userFastSynth.createHit()
+        
     def handleUserDrumming(self, key):
         self.doUserInputSynth(key)
         if self.hasUserTappedNote: return
