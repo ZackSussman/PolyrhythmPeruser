@@ -235,7 +235,8 @@ class MainApp(App):
         #update timers for the help boxes
         if self.learnPolyrhythmScreen in self.currentScreens:
             grid = self.preferencesScreen.eventControl["settings"]
-            if grid.rows[-1][int(grid.selected[-1])] == "On":
+            #-6 is the index for the preference of help instructions
+            if grid.rows[-6][int(grid.selected[-6])] == "On":
                 for box in self.learnPolyrhythmScreen.eventControl["helpBoxes"]:
                     if box[2]:
                         box[1] += self.timerDelay/24
@@ -292,7 +293,13 @@ class MainApp(App):
                 self.preferencesScreen.eventControl["applyButtonInfo"][1] = "gold"
             else:
                 self.preferencesScreen.eventControl["applyButtonInfo"][1] = "white"
-            
+    
+    def mouseDragged(self, event):
+        if self.preferencesScreen in self.currentScreens and self.preferencesScreen.currentAnimationState == "animateNormalPos":
+            grid = self.preferencesScreen.eventControl["settings"]
+            if grid.hovered != [] and grid.hovered[0] >= 20: #sliders
+                grid.sliders[grid.hovered[0] - 20].dotX = event.x
+                grid.sliders[grid.hovered[0] - 20].overrideDotX = True
 
     def mousePressed(self, event):
         if self.titleScreen in self.currentScreens and self.titleScreen.currentAnimationState == "animateNormalPos":
@@ -590,7 +597,7 @@ class MainApp(App):
             return
         #time -= 10*self.timePerBuffer #account for latency
         num1, num2 = self.getPolyrhythm()
-        assert(noteIndex % num1 == 0 or noteIndex % num2 == 0)
+        #assert(noteIndex % num1 == 0 or noteIndex % num2 == 0)
         time = abs(time)
 
         colorValue = None
@@ -616,7 +623,7 @@ class MainApp(App):
         self.learnPolyrhythmScreen.eventControl["dotColors"][noteIndex] = ui.rgbColorString(currentColor[0], currentColor[1], currentColor[2])
 
     def convertOscillatorStringToOscillator(self, osc):
-        assert(osc in ["saw", "square", "triangle", "sin"])
+        #assert(osc in ["saw", "square", "triangle", "sin"])
         return eval(f"Synth.{osc}()") #mwahaha
 
     #called whenever the user returns to self.learnPolyrhythmScreen from self.preferencesScreen to update any state that should be changed from the new settings
@@ -644,6 +651,11 @@ class MainApp(App):
         userFastSynthWavetable = self.convertOscillatorStringToOscillator(grid.rows[rowIndexOfFirstNoteSetting + 14][int(grid.selected[rowIndexOfFirstNoteSetting + 14])])
         self.userFastSynth.setWavetable(userFastSynthWavetable[0], userFastSynthWavetable[1])
         
+        synthsToUpdateVolume = [self.fastSynth, self.slowSynth, self.countSynth, self.userFastSynth, self.userSlowSynth]
+
+        for x in range(len(synthsToUpdateVolume)):
+            volume = (self.maxAmplitude/5)*self.preferencesScreen.eventControl["settings"].sliders[x].value
+            synthsToUpdateVolume[x].maxAmplitude = volume
 
         self.learnPolyrhythmScreen.eventControl["drawStreaks"] = (self.preferencesScreen.eventControl["settings"].selected[2] == 1.0)
 
@@ -680,7 +692,7 @@ class MainApp(App):
             #this is how we find the miniClick time
             self.timePerSubPulse = timePerSlowNote/num2
 
-            assert(self.timePerSubPulse > self.timePerBuffer) #if this isn't true we will have all kinds of problems 
+            #assert(self.timePerSubPulse > self.timePerBuffer) #if this isn't true we will have all kinds of problems 
     #---------------------------------------------------------------------------
 
 
