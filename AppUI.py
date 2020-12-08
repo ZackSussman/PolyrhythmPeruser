@@ -958,5 +958,3 @@ def getSettingsScreen(appWidth, appHeight):
     screen = Screen("Settings Screen",[bgDrawObject, drawApplyButtonObject, drawPreferencesTitleObject, drawPreferencesGridObject], "enterDown", animationState, eventControl, 0, appHeight)
 
     return screen
-
-
